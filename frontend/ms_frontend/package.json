@@ -9,7 +9,12 @@
   },
   "dependencies": {
     "core-js": "^3.8.3",
-    "vue": "^3.2.13"
+    "vue": "^3.2.13",
+    "axios": "^1.6.2",         
+  "element-plus": "^2.4.2",  
+  "pinia": "^2.1.7",         
+  "socket.io-client": "^4.7.2", 
+    "vue-router": "^4.2.5"     
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",
