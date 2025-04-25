@@ -1,66 +1,107 @@
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_restx import Namespace, Resource, fields
 from call_number.services.queue_service import QueueService
-from . import bp
 
-@bp.route('/doctor/<int:doctor_id>', methods=['GET'])
-@jwt_required()
-def get_doctor_queue(doctor_id):
-    """Get queue for a specific doctor"""
-    queues = QueueService.get_doctor_queue(doctor_id)
-    return jsonify([queue.to_dict() for queue in queues])
+api = Namespace('queue', description='Queue management operations')
 
-@bp.route('/patient/<int:patient_id>', methods=['GET'])
-@jwt_required()
-def get_patient_queue(patient_id):
-    """Get queue status for a specific patient"""
-    queue = QueueService.get_patient_queue(patient_id)
-    if not queue:
-        return jsonify({'message': 'No queue found'}), 404
-    return jsonify(queue.to_dict())
+# Define models for Swagger documentation
+patient_model = api.model('Patient', {
+    'id': fields.Integer(description='Patient ID'),
+    'name': fields.String(required=True, description='Patient name'),
+    'age': fields.Integer(description='Patient age'),
+    'gender': fields.String(description='Patient gender'),
+    'symptom': fields.String(description='Patient symptoms'),
+    'waitingTime': fields.Integer(description='Waiting time in minutes'),
+    'examResult': fields.String(description='Examination result'),
+    'isCurrentUser': fields.Boolean(description='Whether this is the current user')
+})
 
-@bp.route('/join', methods=['POST'])
-@jwt_required()
-def join_queue():
-    """Join the queue"""
-    data = request.get_json()
-    patient_id = data.get('patient_id')
-    doctor_id = data.get('doctor_id')
-    priority = data.get('priority', False)
-    appointment_id = data.get('appointment_id')
+queue_info_model = api.model('QueueInfo', {
+    'queueNumber': fields.String(required=True, description='Queue number'),
+    'ahead': fields.Integer(description='Number of patients ahead'),
+    'estimatedWaitTime': fields.Integer(description='Estimated wait time in minutes'),
+    'status': fields.String(description='Queue status (waiting/calling/exam/completed)'),
+    'registerTime': fields.DateTime(description='Registration time')
+})
 
-    queue = QueueService.join_queue(patient_id, doctor_id, priority, appointment_id)
-    return jsonify(queue.to_dict()), 201
+clinic_info_model = api.model('ClinicInfo', {
+    'name': fields.String(required=True, description='Clinic name'),
+    'location': fields.String(description='Clinic location'),
+    'doctorName': fields.String(description='Doctor name'),
+    'specialty': fields.String(description='Doctor specialty'),
+    'workingHours': fields.String(description='Working hours'),
+    'notice': fields.String(description='Clinic notice'),
+    'mapX': fields.Integer(description='Map X coordinate'),
+    'mapY': fields.Integer(description='Map Y coordinate'),
+    'locationDirections': fields.String(description='Location directions')
+})
 
-@bp.route('/call-next', methods=['POST'])
-@jwt_required()
-def call_next_patient():
-    """Call next patient in queue"""
-    data = request.get_json()
-    doctor_id = data.get('doctor_id')
-    
-    next_patient = QueueService.call_next_patient(doctor_id)
-    if not next_patient:
-        return jsonify({'message': 'No patients in queue'}), 404
+@api.route('/register')
+class RegisterPatient(Resource):
+    @api.doc('register_patient', security='Bearer')
+    @api.expect(api.model('RegisterForm', {
+        'visitReason': fields.String(required=True, description='Visit reason'),
+        'department': fields.String(required=True, description='Department')
+    }))
+    @api.response(201, 'Patient registered successfully')
+    @api.response(400, 'Invalid input')
+    @jwt_required()
+    def post(self):
+        """Register a new patient in the queue"""
+        data = request.get_json()
+        result = QueueService.register_patient(data)
+        return jsonify(result), 201
 
-    return jsonify(next_patient.to_dict())
+@api.route('/status/<int:patient_id>')
+class GetQueueStatus(Resource):
+    @api.doc('get_queue_status', security='Bearer')
+    @api.response(200, 'Success')
+    @api.response(404, 'Patient not found')
+    @jwt_required()
+    def get(self, patient_id):
+        """Get queue status for a patient"""
+        status = QueueService.get_queue_status(patient_id)
+        return jsonify(status)
 
-@bp.route('/finish/<int:queue_id>', methods=['POST'])
-@jwt_required()
-def finish_diagnosis(queue_id):
-    """Finish diagnosis and remove from queue"""
-    QueueService.finish_diagnosis(queue_id)
-    return jsonify({'message': 'Diagnosis finished'})
+@api.route('/clinic/<int:clinic_id>')
+class GetClinicInfo(Resource):
+    @api.doc('get_clinic_info', security='Bearer')
+    @api.response(200, 'Success')
+    @api.response(404, 'Clinic not found')
+    @jwt_required()
+    def get(self, clinic_id):
+        """Get clinic information"""
+        info = QueueService.get_clinic_info(clinic_id)
+        return jsonify(info)
 
-@bp.route('/statistics/<int:doctor_id>', methods=['GET'])
-@jwt_required()
-def get_queue_statistics(doctor_id):
-    """Get queue statistics for a doctor"""
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    
-    if not start_date or not end_date:
-        return jsonify({'message': 'Start date and end date are required'}), 400
+@api.route('/current')
+class GetCurrentCalling(Resource):
+    @api.doc('get_current_calling', security='Bearer')
+    @api.response(200, 'Success')
+    @jwt_required()
+    def get(self):
+        """Get current calling information"""
+        calling = QueueService.get_current_calling()
+        return jsonify(calling)
 
-    statistics = QueueService.get_queue_statistics(doctor_id, start_date, end_date)
-    return jsonify(statistics) 
+@api.route('/list')
+class GetQueueList(Resource):
+    @api.doc('get_queue_list', security='Bearer')
+    @api.response(200, 'Success')
+    @jwt_required()
+    def get(self):
+        """Get the current queue list"""
+        queue_list = QueueService.get_queue_list()
+        return jsonify(queue_list)
+
+@api.route('/refresh/<int:patient_id>')
+class RefreshQueueStatus(Resource):
+    @api.doc('refresh_queue_status', security='Bearer')
+    @api.response(200, 'Success')
+    @api.response(404, 'Patient not found')
+    @jwt_required()
+    def post(self, patient_id):
+        """Refresh queue status for a patient"""
+        status = QueueService.refresh_queue_status(patient_id)
+        return jsonify(status) 

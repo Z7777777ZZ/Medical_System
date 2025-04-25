@@ -1,33 +1,74 @@
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_restx import Namespace, Resource, fields
 from diagnosis.services.diagnosis_service import DiagnosisService
 from . import bp
 
-@bp.route('/create', methods=['POST'])
-@jwt_required()
-def create_diagnosis():
-    """Create a new diagnosis record"""
-    data = request.get_json()
-    diagnosis = DiagnosisService.create_diagnosis(data)
-    return jsonify(diagnosis.to_dict()), 201
+api = Namespace('diagnosis', description='Diagnosis related operations')
 
-@bp.route('/<int:diagnosis_id>', methods=['GET'])
-@jwt_required()
-def get_diagnosis(diagnosis_id):
-    """Get a diagnosis record by ID"""
-    diagnosis = DiagnosisService.get_diagnosis(diagnosis_id)
-    return jsonify(diagnosis.to_dict())
+# Define models for Swagger documentation
+diagnosis_model = api.model('Diagnosis', {
+    'id': fields.Integer(description='Diagnosis ID'),
+    'patient_id': fields.Integer(required=True, description='Patient ID'),
+    'doctor_id': fields.Integer(required=True, description='Doctor ID'),
+    'symptoms': fields.String(required=True, description='Patient symptoms'),
+    'examination': fields.String(description='Examination results'),
+    'diagnosis': fields.String(required=True, description='Diagnosis result'),
+    'treatment_plan': fields.String(description='Treatment plan'),
+    'follow_up': fields.String(description='Follow up instructions'),
+    'template_id': fields.Integer(description='Template ID used for this diagnosis'),
+    'created_at': fields.DateTime(description='Creation timestamp'),
+    'updated_at': fields.DateTime(description='Last update timestamp')
+})
 
-@bp.route('/patient/<int:patient_id>', methods=['GET'])
-@jwt_required()
-def get_patient_diagnoses(patient_id):
-    """Get all diagnoses for a patient"""
-    diagnoses = DiagnosisService.get_patient_diagnoses(patient_id)
-    return jsonify([diagnosis.to_dict() for diagnosis in diagnoses])
+@api.route('/create')
+class CreateDiagnosis(Resource):
+    @api.doc('create_diagnosis', security='Bearer')
+    @api.expect(diagnosis_model)
+    @api.response(201, 'Diagnosis created successfully')
+    @api.response(400, 'Invalid input')
+    @jwt_required()
+    def post(self):
+        """Create a new diagnosis record"""
+        data = request.get_json()
+        diagnosis = DiagnosisService.create_diagnosis(data)
+        return jsonify(diagnosis.to_dict()), 201
 
-@bp.route('/doctor/<int:doctor_id>', methods=['GET'])
-@jwt_required()
-def get_doctor_diagnoses(doctor_id):
-    """Get all diagnoses by a doctor"""
-    diagnoses = DiagnosisService.get_doctor_diagnoses(doctor_id)
-    return jsonify([diagnosis.to_dict() for diagnosis in diagnoses]) 
+@api.route('/<int:diagnosis_id>')
+class GetDiagnosis(Resource):
+    @api.doc('get_diagnosis', security='Bearer')
+    @api.response(200, 'Success')
+    @api.response(404, 'Diagnosis not found')
+    @jwt_required()
+    def get(self, diagnosis_id):
+        """Get a diagnosis record by ID"""
+        diagnosis = DiagnosisService.get_diagnosis(diagnosis_id)
+        return jsonify(diagnosis.to_dict())
+
+@api.route('/patient/<int:patient_id>')
+class GetPatientDiagnoses(Resource):
+    @api.doc('get_patient_diagnoses', security='Bearer')
+    @api.response(200, 'Success')
+    @api.response(404, 'Patient not found')
+    @jwt_required()
+    def get(self, patient_id):
+        """Get all diagnoses for a patient"""
+        diagnoses = DiagnosisService.get_patient_diagnoses(patient_id)
+        return jsonify([diagnosis.to_dict() for diagnosis in diagnoses])
+
+@api.route('/doctor/<int:doctor_id>')
+class GetDoctorDiagnoses(Resource):
+    @api.doc('get_doctor_diagnoses', security='Bearer')
+    @api.response(200, 'Success')
+    @api.response(404, 'Doctor not found')
+    @jwt_required()
+    def get(self, doctor_id):
+        """Get all diagnoses by a doctor"""
+        diagnoses = DiagnosisService.get_doctor_diagnoses(doctor_id)
+        return jsonify([diagnosis.to_dict() for diagnosis in diagnoses])
+
+# Register the namespace with the blueprint
+bp.add_url_rule('/create', view_func=CreateDiagnosis.as_view('create_diagnosis'))
+bp.add_url_rule('/<int:diagnosis_id>', view_func=GetDiagnosis.as_view('get_diagnosis'))
+bp.add_url_rule('/patient/<int:patient_id>', view_func=GetPatientDiagnoses.as_view('get_patient_diagnoses'))
+bp.add_url_rule('/doctor/<int:doctor_id>', view_func=GetDoctorDiagnoses.as_view('get_doctor_diagnoses')) 
