@@ -1,6 +1,6 @@
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models.call_log import CallLog
+from call_number.models.call_log import CallLog
 from . import bp
 
 @bp.route('/doctor/<int:doctor_id>', methods=['GET'])

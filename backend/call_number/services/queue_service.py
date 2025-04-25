@@ -1,6 +1,6 @@
 from datetime import datetime
-from models.queue import Queue
-from models.call_log import CallLog
+from call_number.models.queue import Queue
+from call_number.models.call_log import CallLog
 from app import db
 
 class QueueService:

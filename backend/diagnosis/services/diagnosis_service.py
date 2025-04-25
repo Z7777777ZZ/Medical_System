@@ -1,5 +1,5 @@
-from models.diagnosis_record import DiagnosisRecord, DiagnosisTemplate
-from models.prescription import Prescription, PrescriptionDetail
+from diagnosis.models.diagnosis_record import DiagnosisRecord, DiagnosisTemplate
+from diagnosis.models.prescription import Prescription, PrescriptionDetail
 from app import db
 
 class DiagnosisService:
