@@ -1,102 +1,114 @@
-from flask import jsonify, request
+from flask import request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restx import Namespace, Resource, fields
 from diagnosis.services.prescription_service import PrescriptionService
 
-api = Namespace('prescription', description='Prescription management operations')
+api = Namespace('prescription', description='处方管理操作')
 
-# Define models for Swagger documentation
+# 定义Swagger文档模型
 medicine_model = api.model('Medicine', {
-    'id': fields.Integer(description='Medicine ID'),
-    'name': fields.String(required=True, description='Medicine name'),
-    'specification': fields.String(description='Medicine specification'),
-    'price': fields.Float(description='Medicine price'),
-    'stock': fields.Integer(description='Medicine stock'),
-    'quantity': fields.Integer(description='Prescribed quantity'),
-    'usage': fields.String(description='Usage instructions')
+    'id': fields.Integer(description='药品ID'),
+    'name': fields.String(required=True, description='药品名称'),
+    'price': fields.Float(description='药品价格'),
+    'description': fields.String(description='药品描述')
+})
+
+prescription_detail_model = api.model('PrescriptionDetail', {
+    'id': fields.Integer(description='明细ID'),
+    'medicineId': fields.Integer(required=True, description='药品ID'),
+    'medicineName': fields.String(description='药品名称'),
+    'dosage': fields.String(description='剂量'),
+    'frequency': fields.String(description='频率'),
+    'duration': fields.String(description='持续时间'),
+    'instructions': fields.String(description='用药说明'),
+    'price': fields.Float(description='药品价格')
 })
 
 prescription_model = api.model('Prescription', {
-    'id': fields.Integer(description='Prescription ID'),
-    'patientId': fields.Integer(required=True, description='Patient ID'),
-    'doctorId': fields.Integer(required=True, description='Doctor ID'),
-    'date': fields.DateTime(description='Prescription date'),
-    'medicines': fields.List(fields.Nested(medicine_model), description='Prescribed medicines'),
-    'instructions': fields.String(description='Additional instructions'),
-    'status': fields.String(description='Prescription status (draft/completed)'),
-    'createdAt': fields.DateTime(description='Creation timestamp'),
-    'updatedAt': fields.DateTime(description='Last update timestamp')
+    'id': fields.Integer(description='处方ID'),
+    'patientId': fields.Integer(required=True, description='患者ID'),
+    'doctorId': fields.Integer(description='医生ID'),
+    'patientName': fields.String(description='患者姓名'),
+    'doctorName': fields.String(description='医生姓名'),
+    'diagnosis': fields.String(description='诊断结果'),
+    'createdAt': fields.DateTime(description='创建时间'),
+    'status': fields.String(description='状态(draft/confirmed/dispensed)'),
+    'medicines': fields.List(fields.Nested(prescription_detail_model), description='药品明细')
 })
 
-@api.route('/create')
-class CreatePrescription(Resource):
-    @api.doc('create_prescription', security='Bearer')
-    @api.expect(prescription_model)
-    @api.marshal_with(prescription_model, code=201)
-    @api.response(400, 'Invalid input')
-    @jwt_required()
-    def post(self):
-        """Create a new prescription"""
-        data = request.get_json()
-        prescription = PrescriptionService.create_prescription(data)
-        return prescription, 201
-
-@api.route('/<int:prescription_id>')
-class GetPrescription(Resource):
-    @api.doc('get_prescription', security='Bearer')
-    @api.marshal_with(prescription_model)
-    @api.response(404, 'Prescription not found')
-    @jwt_required()
-    def get(self, prescription_id):
-        """Get a prescription by ID"""
-        prescription = PrescriptionService.get_prescription(prescription_id)
-        if not prescription:
-            api.abort(404, 'Prescription not found')
-        return prescription
-
-@api.route('/patient/<int:patient_id>')
-class GetPatientPrescriptions(Resource):
-    @api.doc('get_patient_prescriptions', security='Bearer')
-    @api.marshal_list_with(prescription_model)
-    @api.response(404, 'Patient not found')
-    @jwt_required()
-    def get(self, patient_id):
-        """Get all prescriptions for a patient"""
-        prescriptions = PrescriptionService.get_patient_prescriptions(patient_id)
-        return prescriptions
-
-@api.route('/doctor/<int:doctor_id>')
-class GetDoctorPrescriptions(Resource):
-    @api.doc('get_doctor_prescriptions', security='Bearer')
-    @api.marshal_list_with(prescription_model)
-    @api.response(404, 'Doctor not found')
-    @jwt_required()
-    def get(self, doctor_id):
-        """Get all prescriptions by a doctor"""
-        prescriptions = PrescriptionService.get_doctor_prescriptions(doctor_id)
-        return prescriptions
-
 @api.route('/medicines')
-class GetAvailableMedicines(Resource):
-    @api.doc('get_available_medicines', security='Bearer')
+class MedicineList(Resource):
+    @api.doc('list_medicines', security='Bearer')
     @api.marshal_list_with(medicine_model)
     @jwt_required()
     def get(self):
-        """Get list of available medicines"""
-        medicines = PrescriptionService.get_available_medicines()
+        """获取所有可用药品列表"""
+        medicines = PrescriptionService.get_medicines()
         return medicines
 
-@api.route('/update/<int:prescription_id>')
-class UpdatePrescription(Resource):
+@api.route('/medicines/<int:medicine_id>')
+class MedicineDetail(Resource):
+    @api.doc('get_medicine', security='Bearer')
+    @api.marshal_with(medicine_model)
+    @api.response(404, '药品未找到')
+    @jwt_required()
+    def get(self, medicine_id):
+        """获取药品详情"""
+        medicine = PrescriptionService.get_medicine(medicine_id)
+        if not medicine:
+            api.abort(404, '药品未找到')
+        return medicine
+
+@api.route('')
+class PrescriptionList(Resource):
+    @api.doc('create_prescription', security='Bearer')
+    @api.expect(prescription_model)
+    @api.marshal_with(prescription_model, code=201)
+    @api.response(400, '无效输入')
+    @jwt_required()
+    def post(self):
+        """创建新处方"""
+        data = request.get_json()
+        result = PrescriptionService.create_prescription(data)
+        if not result:
+            api.abort(400, '创建处方失败')
+        return result, 201
+    
+    @api.doc('list_prescriptions', security='Bearer')
+    @api.marshal_list_with(prescription_model)
+    @jwt_required()
+    def get(self):
+        """获取当前患者的所有处方"""
+        patient_id = request.args.get('patientId', None)
+        if not patient_id:
+            api.abort(400, '缺少必要的患者ID参数')
+        
+        prescriptions = PrescriptionService.get_patient_prescriptions(patient_id)
+        return prescriptions
+
+@api.route('/<int:prescription_id>')
+class PrescriptionDetail(Resource):
+    @api.doc('get_prescription', security='Bearer')
+    @api.marshal_with(prescription_model)
+    @api.response(404, '处方未找到')
+    @jwt_required()
+    def get(self, prescription_id):
+        """获取处方详情"""
+        prescription = PrescriptionService.get_prescription(prescription_id)
+        print('ok1')
+        if not prescription:
+            api.abort(404, '处方未找到')
+        return prescription
+    
     @api.doc('update_prescription', security='Bearer')
     @api.expect(prescription_model)
     @api.marshal_with(prescription_model)
-    @api.response(404, 'Prescription not found')
+    @api.response(404, '处方未找到')
     @jwt_required()
     def put(self, prescription_id):
-        """Update a prescription"""
+        """更新处方信息"""
         data = request.get_json()
-        prescription = PrescriptionService.update_prescription(prescription_id, data)
-        if not prescription:
-            api.abort(404, 'Prescription not found')
-        return prescription 
+        result = PrescriptionService.update_prescription(prescription_id, data)
+        if not result:
+            api.abort(404, '处方未找到或更新失败')
+        return result

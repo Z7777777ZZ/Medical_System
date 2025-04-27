@@ -1,105 +1,121 @@
 from app import db
 from diagnosis.models.prescription import Prescription, PrescriptionDetail, Medicine
-from datetime import datetime
+from flask import current_app
+from sqlalchemy.exc import SQLAlchemyError
+import logging
 
 class PrescriptionService:
     @staticmethod
+    def get_medicines():
+        """获取所有药品列表"""
+        try:
+            medicines = Medicine.query.all()
+            return [medicine.to_dict() for medicine in medicines]
+        except Exception as e:
+            logging.error(f"获取药品列表失败: {str(e)}")
+            return []
+    
+    @staticmethod
+    def get_medicine(medicine_id):
+        """根据ID获取药品"""
+        try:
+            medicine = Medicine.query.get(medicine_id)
+            return medicine.to_dict() if medicine else None
+        except Exception as e:
+            logging.error(f"获取药品失败: {str(e)}")
+            return None
+    
+    @staticmethod
     def create_prescription(data):
-        """创建新处方"""
-        prescription = Prescription(
-            patientId=data['patientId'],
-            doctorId=data['doctorId'],
-            date=datetime.now(),
-            instructions=data.get('instructions', ''),
-            status='draft'
-        )
-        db.session.add(prescription)
-        db.session.flush()  # 获取 prescription_id
-
-        # 添加处方明细
-        for medicine in data['medicines']:
-            detail = PrescriptionDetail(
-                prescriptionId=prescription.id,
-                medicineId=medicine['id'],
-                quantity=medicine['quantity'],
-                instructions=medicine['usage']
+        """创建处方"""
+        try:
+            # 创建处方记录
+            prescription = Prescription(
+                patient_id=data.get('patientId'),
+                doctor_id=data.get('doctorId', 1),  # 默认为当前医生
+                diagnosis=data.get('diagnosis', '')
             )
-            db.session.add(detail)
-
-        db.session.commit()
-        return prescription.to_dict()
-
+            
+            db.session.add(prescription)
+            db.session.flush()  # 获取新生成的ID
+            
+            # 添加处方明细
+            if 'medicines' in data and isinstance(data['medicines'], list):
+                for med_data in data['medicines']:
+                    detail = PrescriptionDetail(
+                        prescription_id=prescription.prescription_id,
+                        medicine_id=med_data.get('medicineId'),
+                        dosage=med_data.get('dosage', ''),
+                        frequency=med_data.get('frequency', ''),
+                        duration=med_data.get('duration', ''),
+                        instructions=med_data.get('instructions', '')
+                    )
+                    db.session.add(detail)
+            
+            db.session.commit()
+            return prescription.to_dict()
+        
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            logging.error(f"创建处方失败: {str(e)}")
+            return None
+    
     @staticmethod
     def get_prescription(prescription_id):
         """获取处方详情"""
-        prescription = Prescription.query.get(prescription_id)
-        if not prescription:
+        try:
+            prescription = Prescription.query.get(prescription_id)
+            return prescription.to_dict() if prescription else None
+        except Exception as e:
+            logging.error(f"获取处方失败: {str(e)}")
             return None
-        return prescription.to_dict()
-
+    
     @staticmethod
     def get_patient_prescriptions(patient_id):
-        """获取患者的所有处方"""
-        prescriptions = Prescription.query.filter_by(patientId=patient_id).all()
-        return [p.to_dict() for p in prescriptions]
-
-    @staticmethod
-    def get_doctor_prescriptions(doctor_id):
-        """获取医生的所有处方"""
-        prescriptions = Prescription.query.filter_by(doctorId=doctor_id).all()
-        return [p.to_dict() for p in prescriptions]
-
-    @staticmethod
-    def get_available_medicines():
-        """获取可用药品列表"""
-        medicines = Medicine.query.all()
-        return [m.to_dict() for m in medicines]
-
+        """获取患者的处方列表"""
+        try:
+            prescriptions = Prescription.query.filter_by(patient_id=patient_id).all()
+            return [p.to_dict() for p in prescriptions]
+        except Exception as e:
+            logging.error(f"获取患者处方失败: {str(e)}")
+            return []
+    
     @staticmethod
     def update_prescription(prescription_id, data):
-        """更新处方信息"""
-        prescription = Prescription.query.get(prescription_id)
-        if not prescription:
-            return None
-
-        # 更新基本信息
-        if 'instructions' in data:
-            prescription.instructions = data['instructions']
-        if 'status' in data:
-            prescription.status = data['status']
-
-        # 更新药品明细
-        if 'medicines' in data:
-            # 删除旧的明细
-            PrescriptionDetail.query.filter_by(prescriptionId=prescription_id).delete()
+        """更新处方"""
+        try:
+            prescription = Prescription.query.get(prescription_id)
+            if not prescription:
+                return None
             
-            # 添加新的明细
-            for medicine in data['medicines']:
-                detail = PrescriptionDetail(
-                    prescriptionId=prescription_id,
-                    medicineId=medicine['id'],
-                    quantity=medicine['quantity'],
-                    instructions=medicine['usage']
-                )
-                db.session.add(detail)
-
-        db.session.commit()
-        return prescription.to_dict()
-
-    @staticmethod
-    def check_medicine_conflicts(medicines):
-        """检查药品冲突（示例实现）"""
-        # 这里可以实现药品冲突检测逻辑
-        # 例如：检查是否有相互作用的药品组合
-        return []
-
-    @staticmethod
-    def calculate_dosage(medicine_id, patient_weight, patient_age):
-        """计算药品剂量（示例实现）"""
-        # 这里可以实现基于体重和年龄的剂量计算逻辑
-        # 返回建议剂量
-        return {
-            'suggestedDosage': '1片',
-            'frequency': '一日三次',
-            'notes': '饭后服用'
-        } 
+            # 更新处方基本信息
+            if 'diagnosis' in data:
+                prescription.diagnosis = data['diagnosis']
+            
+            if 'status' in data:
+                prescription.status = data['status']
+            
+            # 如果提供了新的药品列表，先删除旧的明细
+            if 'medicines' in data and isinstance(data['medicines'], list):
+                # 删除现有明细
+                PrescriptionDetail.query.filter_by(prescription_id=prescription_id).delete()
+                
+                # 添加新明细
+                for med_data in data['medicines']:
+                    detail = PrescriptionDetail(
+                        prescription_id=prescription_id,
+                        medicine_id=med_data.get('medicineId'),
+                        dosage=med_data.get('dosage', ''),
+                        frequency=med_data.get('frequency', ''),
+                        duration=med_data.get('duration', ''),
+                        instructions=med_data.get('instructions', '')
+                    )
+                    db.session.add(detail)
+            
+            db.session.commit()
+            return prescription.to_dict()
+        
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            logging.error(f"更新处方失败: {str(e)}")
+            return None

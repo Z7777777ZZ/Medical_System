@@ -14,6 +14,22 @@ backend/
 │   ├── base.py           # Base model with common fields
 │   ├── queue.py          # Queue model
 │   └── prescription.py   # Prescription model
+├── call_number/          # 叫号系统模块
+│   ├── api/              # API routes for queue management
+│   │   ├── __init__.py
+│   │   └── queue.py      # Queue API
+│   ├── models/           # Queue models
+│   │   └── queue.py      # Queue model
+│   └── services/         # Queue services
+│       └── queue_service.py  # Queue service implementation
+├── diagnosis/            # 诊断与处方模块
+│   ├── api/              # API routes for diagnosis
+│   │   ├── __init__.py
+│   │   └── prescription.py # Prescription API
+│   ├── models/           # Diagnosis models
+│   │   └── prescription.py # Prescription model
+│   └── services/         # Diagnosis services
+│       └── prescription_service.py # Prescription service implementation
 ├── config.py             # Configuration settings
 ├── app.py               # Application factory
 ├── requirements.txt     # Python dependencies
@@ -54,7 +70,27 @@ python app.py
 
 ## API Documentation
 
-See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for detailed API documentation.
+API documentation is available through Swagger UI at `/docs` endpoint when the application is running.
+
+## API Overview
+
+### 叫号系统 API
+
+- `POST /api/call-number/queue/register` - 注册患者进入队列
+- `GET /api/call-number/queue/status/<patient_id>` - 获取患者队列状态
+- `GET /api/call-number/queue/clinic/<clinic_id>` - 获取诊所信息
+- `GET /api/call-number/queue/current` - 获取当前叫号患者
+- `GET /api/call-number/queue/list` - 获取当前队列列表
+- `POST /api/call-number/queue/refresh/<patient_id>` - 刷新患者队列状态
+
+### 处方系统 API
+
+- `GET /api/diagnosis/prescription/medicines` - 获取所有药品列表
+- `GET /api/diagnosis/prescription/medicines/<medicine_id>` - 获取药品详情
+- `POST /api/diagnosis/prescription` - 创建新处方
+- `GET /api/diagnosis/prescription?patientId=<patient_id>` - 获取患者的所有处方
+- `GET /api/diagnosis/prescription/<prescription_id>` - 获取处方详情
+- `PUT /api/diagnosis/prescription/<prescription_id>` - 更新处方信息
 
 ## Development Guidelines
 
@@ -89,4 +125,4 @@ See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for detailed API documentation.
 
 ## License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License.

@@ -38,13 +38,13 @@ api = Api(
     version='1.0',
     description='Diagnosis and Call API',
     doc='/docs',
-    mask=False,  # Disable X-Fields header
     authorizations=authorizations,
 )
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+    
 
     # Initialize extensions
     db.init_app(app)
@@ -53,8 +53,6 @@ def create_app(config_class=Config):
     jwt.init_app(app)
     api.init_app(app)
 
-    
-    
     # Register blueprints and namespaces
     from call_number.api import bp as call_number_bp
     app.register_blueprint(call_number_bp, url_prefix='/api/call-number')
@@ -63,17 +61,18 @@ def create_app(config_class=Config):
     app.register_blueprint(diagnosis_bp, url_prefix='/api/diagnosis')
 
     # Import and register namespaces
-    from diagnosis.api.diagnosis import api as diagnosis_ns
+    # 删除不存在的模块引用
     from diagnosis.api.prescription import api as prescription_ns
     from call_number.api.queue import api as queue_ns
 
-    # api.add_namespace(diagnosis_ns, path='/api/diagnosis')  暂时不用
+    # 添加命名空间到API
     api.add_namespace(prescription_ns, path='/api/diagnosis/prescription')
     api.add_namespace(queue_ns, path='/api/call-number/queue')
 
-    #导入模型
-    from call_number.models import Queue
-    from diagnosis.models.prescription import Prescription,Medicine,PrescriptionDetail
+    # 导入模型以确保它们被创建
+    from call_number.models.queue import Queue  # 修正导入路径
+    from diagnosis.models.prescription import Prescription, Medicine, PrescriptionDetail
+    
     # Create database tables
     with app.app_context():
         db.create_all()

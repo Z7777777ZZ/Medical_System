@@ -1,75 +1,81 @@
 from app import db
-from models.base import BaseModel
+from models.base import Base
+from datetime import datetime
 
-class Medicine(BaseModel):
+class Medicine(Base):
+    """药品模型"""
     __tablename__ = 'medicines'
-
+    
+    medicine_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    specification = db.Column(db.String(100))
-    price = db.Column(db.Numeric(10, 2))
-    stock = db.Column(db.Integer)
+    price = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text)
-    conflicts = db.Column(db.Text)  # 存储与其他药品的冲突信息，JSON格式
-
+    
     def to_dict(self):
+        """转换为API响应格式，使用驼峰命名"""
         return {
-            'id': self.id,
+            'id': self.medicine_id,
             'name': self.name,
-            'specification': self.specification,
-            'price': float(self.price) if self.price else None,
-            'stock': self.stock,
+            'price': self.price,
             'description': self.description
         }
 
-class Prescription(BaseModel):
+class Prescription(Base):
+    """处方模型"""
     __tablename__ = 'prescriptions'
-
-    patientId = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
-    doctorId = db.Column(db.Integer, db.ForeignKey('doctors.id'), nullable=False)
-    date = db.Column(db.DateTime, nullable=False)
-    instructions = db.Column(db.Text)
-    status = db.Column(db.String(20), default='draft')  # draft, completed
-
-    # 移除 relationship 定义
-
+    
+    prescription_id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.patient_id'), nullable=False)
+    doctor_id = db.Column(db.Integer, db.ForeignKey('doctors.doctor_id'), nullable=False)
+    diagnosis = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.Enum('draft', 'confirmed', 'dispensed'), default='draft')
+    
+    # 关系
+    patient = db.relationship('Patient', backref='prescriptions')
+    doctor = db.relationship('Doctor', backref='prescriptions')
+    details = db.relationship('PrescriptionDetail', backref='prescription', cascade='all, delete-orphan')
+    
     def to_dict(self):
-        # 手动查询关联的处方明细
-        from diagnosis.models.prescription import PrescriptionDetail
-        details = PrescriptionDetail.query.filter_by(prescriptionId=self.id).all()
+        """转换为API响应格式，使用驼峰命名"""
+        details = [detail.to_dict() for detail in self.details]
         
         return {
-            'id': self.id,
-            'patientId': self.patientId,
-            'doctorId': self.doctorId,
-            'date': self.date.isoformat() if self.date else None,
-            'instructions': self.instructions,
+            'id': self.prescription_id,
+            'patientId': self.patient_id,
+            'doctorId': self.doctor_id,
+            'patientName': self.patient.name if self.patient else None,
+            'doctorName': self.doctor.name if self.doctor else None,
+            'diagnosis': self.diagnosis,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
             'status': self.status,
-            'medicines': [detail.to_dict() for detail in details],
-            'createdAt': self.createdAt.isoformat() if self.createdAt else None,
-            'updatedAt': self.updatedAt.isoformat() if self.updatedAt else None
+            'medicines': details
         }
 
-class PrescriptionDetail(BaseModel):
+class PrescriptionDetail(Base):
+    """处方明细模型"""
     __tablename__ = 'prescription_details'
-
-    prescriptionId = db.Column(db.Integer, db.ForeignKey('prescriptions.id'), nullable=False)
-    medicineId = db.Column(db.Integer, db.ForeignKey('medicines.id'), nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)
+    
+    detail_id = db.Column(db.Integer, primary_key=True)
+    prescription_id = db.Column(db.Integer, db.ForeignKey('prescriptions.prescription_id'), nullable=False)
+    medicine_id = db.Column(db.Integer, db.ForeignKey('medicines.medicine_id'), nullable=False)
+    dosage = db.Column(db.String(100))
+    frequency = db.Column(db.String(100))
+    duration = db.Column(db.String(100))
     instructions = db.Column(db.Text)
-
-    # 移除 relationship 定义
-
+    
+    # 关系
+    medicine = db.relationship('Medicine')
+    
     def to_dict(self):
-        # 手动获取药品信息
-        from diagnosis.models.prescription import Medicine
-        medicine_obj = Medicine.query.get(self.medicineId)
-        medicine = medicine_obj.to_dict() if medicine_obj else None
-        
+        """转换为API响应格式，使用驼峰命名"""
         return {
-            'id': self.id,
-            'prescriptionId': self.prescriptionId,
-            'medicineId': self.medicineId,
-            'quantity': self.quantity,
-            'usage': self.instructions,
-            'medicine': medicine
+            'id': self.detail_id,
+            'medicineId': self.medicine_id,
+            'medicineName': self.medicine.name if self.medicine else None,
+            'dosage': self.dosage,
+            'frequency': self.frequency,
+            'duration': self.duration,
+            'instructions': self.instructions,
+            'price': self.medicine.price if self.medicine else 0
         }
