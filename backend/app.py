@@ -1,19 +1,45 @@
-from flask import Flask
+from flask import Flask,_request_ctx_stack
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
 from config import Config
-
+from functools import wraps
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
+# 创建一个自定义的jwt_required装饰器，它总是允许访问
+def jwt_always_pass(optional=False):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorator(*args, **kwargs):
+            # 设置一个默认的身份信息
+            _request_ctx_stack.top.jwt = {"sub": 1, "role": "doctor"}
+            _request_ctx_stack.top.jwt_user = {'id': 1, 'role': 'doctor'}
+            return fn(*args, **kwargs)
+        return decorator
+    return wrapper
+
+import flask_jwt_extended
+flask_jwt_extended.jwt_required = jwt_always_pass
+
+authorizations = {
+    'Bearer': {
+        'type': 'apiKey',
+        'in': 'header',
+        'name': 'Authorization',
+        'description': "输入你的 JWT Token，格式: <code>Bearer &lt;your_token&gt;</code>",
+        'default': '11111111'  # 设置默认值
+    }
+}
 api = Api(
-    title='Medical System API(Diagnosis and Call)',
+    title='Medical System API',
     version='1.0',
-    description='A medical system API with Swagger documentation',
-    doc='/docs'
+    description='Diagnosis and Call API',
+    doc='/docs',
+    mask=False,  # Disable X-Fields header
+    authorizations=authorizations,
 )
 
 def create_app(config_class=Config):
@@ -27,6 +53,8 @@ def create_app(config_class=Config):
     jwt.init_app(app)
     api.init_app(app)
 
+    
+    
     # Register blueprints and namespaces
     from call_number.api import bp as call_number_bp
     app.register_blueprint(call_number_bp, url_prefix='/api/call-number')
@@ -39,10 +67,13 @@ def create_app(config_class=Config):
     from diagnosis.api.prescription import api as prescription_ns
     from call_number.api.queue import api as queue_ns
 
-    api.add_namespace(diagnosis_ns, path='/api/diagnosis')
+    # api.add_namespace(diagnosis_ns, path='/api/diagnosis')  暂时不用
     api.add_namespace(prescription_ns, path='/api/diagnosis/prescription')
     api.add_namespace(queue_ns, path='/api/call-number/queue')
 
+    #导入模型
+    from call_number.models import Queue
+    from diagnosis.models.prescription import Prescription,Medicine,PrescriptionDetail
     # Create database tables
     with app.app_context():
         db.create_all()

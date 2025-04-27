@@ -44,64 +44,70 @@ class RegisterPatient(Resource):
         'visitReason': fields.String(required=True, description='Visit reason'),
         'department': fields.String(required=True, description='Department')
     }))
-    @api.response(201, 'Patient registered successfully')
+    @api.marshal_with(queue_info_model, code=201)
     @api.response(400, 'Invalid input')
     @jwt_required()
     def post(self):
         """Register a new patient in the queue"""
         data = request.get_json()
         result = QueueService.register_patient(data)
-        return jsonify(result), 201
+        return result, 201
 
 @api.route('/status/<int:patient_id>')
 class GetQueueStatus(Resource):
     @api.doc('get_queue_status', security='Bearer')
-    @api.response(200, 'Success')
+    @api.marshal_with(queue_info_model)
     @api.response(404, 'Patient not found')
     @jwt_required()
     def get(self, patient_id):
         """Get queue status for a patient"""
         status = QueueService.get_queue_status(patient_id)
-        return jsonify(status)
+        if not status:
+            api.abort(404, 'Patient not found')
+        return status
 
 @api.route('/clinic/<int:clinic_id>')
 class GetClinicInfo(Resource):
     @api.doc('get_clinic_info', security='Bearer')
-    @api.response(200, 'Success')
+    @api.marshal_with(clinic_info_model)
     @api.response(404, 'Clinic not found')
     @jwt_required()
     def get(self, clinic_id):
         """Get clinic information"""
         info = QueueService.get_clinic_info(clinic_id)
-        return jsonify(info)
+        if not info:
+            api.abort(404, 'Clinic not found')
+        return info
 
 @api.route('/current')
 class GetCurrentCalling(Resource):
     @api.doc('get_current_calling', security='Bearer')
-    @api.response(200, 'Success')
+    @api.marshal_with(patient_model)
     @jwt_required()
     def get(self):
         """Get current calling information"""
         calling = QueueService.get_current_calling()
-        return jsonify(calling)
+        return calling
 
 @api.route('/list')
 class GetQueueList(Resource):
     @api.doc('get_queue_list', security='Bearer')
-    @api.response(200, 'Success')
+    @api.marshal_list_with(patient_model)
     @jwt_required()
     def get(self):
         """Get the current queue list"""
         queue_list = QueueService.get_queue_list()
-        return jsonify(queue_list)
+        return queue_list
 
 @api.route('/refresh/<int:patient_id>')
 class RefreshQueueStatus(Resource):
     @api.doc('refresh_queue_status', security='Bearer')
-    @api.response(200, 'Success')
+    @api.marshal_with(queue_info_model)
     @api.response(404, 'Patient not found')
     @jwt_required()
     def post(self, patient_id):
         """Refresh queue status for a patient"""
         status = QueueService.refresh_queue_status(patient_id)
-        return jsonify(status) 
+        if not status:
+            api.abort(404, 'Patient not found')
+        return status 

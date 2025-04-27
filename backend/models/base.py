@@ -1,10 +1,10 @@
 from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, DateTime
-
+from app import db
 Base = declarative_base()
 
-class BaseModel(Base):
+class BaseModel(db.Model):
     """Base model class that includes common columns and methods"""
     __abstract__ = True
 

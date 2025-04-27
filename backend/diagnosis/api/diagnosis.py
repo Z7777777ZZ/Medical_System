@@ -2,7 +2,6 @@ from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restx import Namespace, Resource, fields
 from diagnosis.services.diagnosis_service import DiagnosisService
-from . import bp
 
 api = Namespace('diagnosis', description='Diagnosis related operations')
 
@@ -25,50 +24,50 @@ diagnosis_model = api.model('Diagnosis', {
 class CreateDiagnosis(Resource):
     @api.doc('create_diagnosis', security='Bearer')
     @api.expect(diagnosis_model)
-    @api.response(201, 'Diagnosis created successfully')
+    @api.marshal_with(diagnosis_model, code=201)
     @api.response(400, 'Invalid input')
     @jwt_required()
     def post(self):
         """Create a new diagnosis record"""
         data = request.get_json()
         diagnosis = DiagnosisService.create_diagnosis(data)
-        return jsonify(diagnosis.to_dict()), 201
+        return diagnosis.to_dict(), 201
 
 @api.route('/<int:diagnosis_id>')
 class GetDiagnosis(Resource):
     @api.doc('get_diagnosis', security='Bearer')
-    @api.response(200, 'Success')
+    @api.marshal_with(diagnosis_model)
     @api.response(404, 'Diagnosis not found')
     @jwt_required()
     def get(self, diagnosis_id):
         """Get a diagnosis record by ID"""
         diagnosis = DiagnosisService.get_diagnosis(diagnosis_id)
-        return jsonify(diagnosis.to_dict())
+        if not diagnosis:
+            api.abort(404, 'Diagnosis not found')
+        return diagnosis.to_dict()
 
 @api.route('/patient/<int:patient_id>')
 class GetPatientDiagnoses(Resource):
     @api.doc('get_patient_diagnoses', security='Bearer')
-    @api.response(200, 'Success')
+    @api.marshal_list_with(diagnosis_model)
     @api.response(404, 'Patient not found')
     @jwt_required()
     def get(self, patient_id):
         """Get all diagnoses for a patient"""
         diagnoses = DiagnosisService.get_patient_diagnoses(patient_id)
-        return jsonify([diagnosis.to_dict() for diagnosis in diagnoses])
+        if not diagnoses:
+            api.abort(404, 'Patient not found')
+        return [diagnosis.to_dict() for diagnosis in diagnoses]
 
 @api.route('/doctor/<int:doctor_id>')
 class GetDoctorDiagnoses(Resource):
     @api.doc('get_doctor_diagnoses', security='Bearer')
-    @api.response(200, 'Success')
+    @api.marshal_list_with(diagnosis_model)
     @api.response(404, 'Doctor not found')
     @jwt_required()
     def get(self, doctor_id):
         """Get all diagnoses by a doctor"""
         diagnoses = DiagnosisService.get_doctor_diagnoses(doctor_id)
-        return jsonify([diagnosis.to_dict() for diagnosis in diagnoses])
-
-# Register the namespace with the blueprint
-bp.add_url_rule('/create', view_func=CreateDiagnosis.as_view('create_diagnosis'))
-bp.add_url_rule('/<int:diagnosis_id>', view_func=GetDiagnosis.as_view('get_diagnosis'))
-bp.add_url_rule('/patient/<int:patient_id>', view_func=GetPatientDiagnoses.as_view('get_patient_diagnoses'))
-bp.add_url_rule('/doctor/<int:doctor_id>', view_func=GetDoctorDiagnoses.as_view('get_doctor_diagnoses')) 
+        if not diagnoses:
+            api.abort(404, 'Doctor not found')
+        return [diagnosis.to_dict() for diagnosis in diagnoses] 
