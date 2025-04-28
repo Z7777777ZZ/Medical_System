@@ -147,8 +147,8 @@ class QueueService:
     
     @staticmethod
     def get_clinic_info(clinic_id):
-        """获取诊所信息"""
-        # 模拟诊所信息，实际应从数据库获取
+        """获取诊室信息"""
+        # 模拟诊室信息，实际应从数据库获取
         return {
             'name': f'诊室 {clinic_id}',
             'location': f'门诊楼 {clinic_id//10 + 1} 楼 {clinic_id % 10 + 1} 号诊室',
@@ -225,13 +225,21 @@ class QueueService:
                 delta = datetime.datetime.utcnow() - queue.created_at
                 waiting_time = int(delta.total_seconds() / 60)
                 
-            # 判断是否为当前用户
-            from flask_jwt_extended import get_jwt_identity
-            current_user_id = get_jwt_identity() if get_jwt_identity() else 0
-            is_current_user = (current_user_id == patient.id)
+            # 判断是否为当前用户 
+            # 为了避免耦合，先TODO
+            #输出一个warning，后续可以考虑使用JWT来获取当前用户ID
+            
+
+            
+            
+            
+            # from flask_jwt_extended import get_jwt_identity
+            # current_user_id = get_jwt_identity() if get_jwt_identity() else 0
+            # is_current_user = (current_user_id == patient.id)
+            is_current_user=False
             
             patients.append({
-                'id': patient.id,
+                'id': patient.patient_id,
                 'name': patient.name,
                 'age': patient.calculate_age() if hasattr(patient, 'calculate_age') else None,
                 'gender': patient.gender,

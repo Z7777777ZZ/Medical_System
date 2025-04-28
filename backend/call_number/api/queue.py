@@ -28,12 +28,12 @@ queue_info_model = api.model('QueueInfo', {
 })
 
 clinic_info_model = api.model('ClinicInfo', {
-    'name': fields.String(required=True, description='诊所名称'),
-    'location': fields.String(description='诊所位置'),
+    'name': fields.String(required=True, description='诊室名称'),
+    'location': fields.String(description='诊室位置'),
     'doctorName': fields.String(description='医生姓名'),
     'specialty': fields.String(description='医生专长'),
     'workingHours': fields.String(description='工作时间'),
-    'notice': fields.String(description='诊所公告'),
+    'notice': fields.String(description='诊室公告'),
     'mapX': fields.Integer(description='地图X坐标'),
     'mapY': fields.Integer(description='地图Y坐标'),
     'locationDirections': fields.String(description='位置指引')
@@ -104,12 +104,12 @@ class GetQueueStatus(Resource):
 class GetClinicInfo(Resource):
     @api.doc('get_clinic_info')
     @api.marshal_with(clinic_info_model)
-    @api.response(404, '诊所未找到')
+    @api.response(404, '诊室未找到')
     def get(self, clinic_id):
-        """获取诊所信息"""
+        """获取诊室信息"""
         info = QueueService.get_clinic_info(clinic_id)
         if not info:
-            api.abort(404, '诊所未找到')
+            api.abort(404, '诊室未找到')
         return info
 
 @api.route('/current')
