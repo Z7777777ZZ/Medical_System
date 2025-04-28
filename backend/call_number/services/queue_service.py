@@ -6,17 +6,33 @@ import random
 
 class QueueService:
     @staticmethod
-    def register_patient(data):
-        """注册患者进入队列"""
-        # 获取当前排队人数，生成队列号
-        patient_id = 1  # 模拟获取当前用户ID，实际应从JWT获取
-        doctor_id = 1  # 模拟分配医生，实际应根据科室分配
+    def register_patient(data, patient_id, doctor_id=None):
+        """
+        注册患者进入队列
+        :param data: 包含就诊信息的字典
+        :param patient_id: 患者ID (必选)
+        :param doctor_id: 医生ID (可选，如果未指定就分配)
+        """
+        # 如果未指定医生，根据科室分配医生
+        if doctor_id is None:
+            # 这里可以添加根据科室分配医生的逻辑
+            # 简单示例：随机分配一个医生ID (1-10)
+            doctor_id = random.randint(1, 10)
         
         # 生成队列号: 科室代码 + 日期 + 序号
         department_code = data.get('department', 'GEN')[:3].upper()
         date_code = datetime.now().strftime('%Y%m%d')
-        sequence = random.randint(1, 100)  # 模拟序号，实际应从数据库获取
-        queue_number = f"{department_code}{date_code}{sequence:03d}"
+        
+        # 使用显式查询获取当天同科室的队列数量
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        queue_count = Queue.query.filter(
+            Queue.doctor_id == doctor_id,
+            Queue.created_at >= today_start
+        ).count()
+        
+        # 生成序号，使用实际计数值
+        sequence = queue_count + 1
+        queue_number = sequence  # 使用整数队列号
         
         # 创建队列记录
         queue = Queue(
@@ -24,26 +40,89 @@ class QueueService:
             doctor_id=doctor_id,
             queue_number=queue_number,
             status='waiting',
-            visit_reason=data.get('visitReason', ''),
-            department=data.get('department', '')
+            priority=data.get('priority', False)
         )
         
         db.session.add(queue)
         db.session.commit()
         
+        # 计算前面等待人数
+        ahead_count = Queue.query.filter(
+            Queue.doctor_id == queue.doctor_id,
+            Queue.created_at < queue.created_at,
+            Queue.status == 'waiting'
+        ).count()
+        
+        # 估算等待时间（每人约5分钟）
+        estimated_wait_time = ahead_count * 5
+        
         # 返回队列信息
         return {
             'queueNumber': queue_number,
-            'ahead': 5,  # 模拟前面等待人数
-            'estimatedWaitTime': 25,  # 模拟等待时间，实际应计算
+            'ahead': ahead_count,
+            'estimatedWaitTime': estimated_wait_time,
             'status': 'waiting',
-            'registerTime': queue.register_time.isoformat()
+            'createdAt': queue.created_at.isoformat() if queue.created_at else None
         }
+    
+    @staticmethod
+    def call_next_patient(doctor_id, patient_id=None):
+        """
+        医生叫号
+        :param doctor_id: 医生ID
+        :param patient_id: 指定叫号的患者ID (可选)
+        :return: 被叫的患者信息
+        """
+        # 如果指定了患者ID，则叫指定患者
+        if patient_id:
+            queue = Queue.query.filter_by(
+                doctor_id=doctor_id,
+                patient_id=patient_id,
+                status='waiting'
+            ).first()
+            
+            if not queue:
+                return {"error": "指定的患者不在等待队列中"}, 404
+        else:
+            # 否则叫下一位排队的患者
+            queue = Queue.query.filter_by(
+                doctor_id=doctor_id,
+                status='waiting'
+            ).order_by(Queue.priority.desc(), Queue.created_at.asc()).first()
+            
+            if not queue:
+                return {"error": "没有等待的患者"}, 404
+        
+        # 将队列状态更新为"called"
+        queue.status = 'called'
+        db.session.commit()
+        
+        # 获取患者信息
+        from users.models.patient import Patient
+        patient = Patient.query.get(queue.patient_id)
+        
+        if not patient:
+            return {"error": "找不到患者信息"}, 404
+        
+        # 计算等待时间（分钟）
+        waiting_time = 0
+        if queue.created_at:
+            delta = datetime.utcnow() - queue.created_at
+            waiting_time = int(delta.total_seconds() / 60)
+        
+        return {
+            'id': queue.patient_id,
+            'name': patient.name,
+            'queueNumber': queue.queue_number,
+            'waitingTime': waiting_time,
+            'priority': queue.priority,
+            'status': queue.status
+        }, 200
     
     @staticmethod
     def get_queue_status(patient_id):
         """获取患者的队列状态"""
-        queue = Queue.query.filter_by(patient_id=patient_id, status='waiting').order_by(Queue.register_time.desc()).first()
+        queue = Queue.query.filter_by(patient_id=patient_id, status='waiting').order_by(Queue.created_at.desc()).first()
         
         if not queue:
             return None
@@ -51,7 +130,7 @@ class QueueService:
         # 计算前面等待人数
         ahead_count = Queue.query.filter(
             Queue.doctor_id == queue.doctor_id,
-            Queue.register_time < queue.register_time,
+            Queue.created_at < queue.created_at,
             Queue.status == 'waiting'
         ).count()
         
@@ -63,7 +142,7 @@ class QueueService:
             'ahead': ahead_count,
             'estimatedWaitTime': estimated_wait_time,
             'status': queue.status,
-            'registerTime': queue.register_time.isoformat()
+            'registerTime': queue.created_at.isoformat()
         }
     
     @staticmethod
@@ -85,34 +164,83 @@ class QueueService:
     @staticmethod
     def get_current_calling():
         """获取当前正在叫号的患者信息"""
-        # 模拟当前叫号患者，实际应从数据库获取
+        # 查询当前正在叫号的患者
+        from users.models.patient import Patient  # 引入患者模型
+        
+        current_queue = Queue.query.filter_by(status='calling').order_by(Queue.created_at).first()
+        if not current_queue:
+            return None
+            
+        # 获取患者基本信息
+        patient = Patient.query.get(current_queue.patient_id)
+        if not patient:
+            return None
+            
+        # 计算等待时间（分钟）
+        waiting_time = 0
+        if current_queue.created_at:
+            import datetime
+            delta = datetime.datetime.utcnow() - current_queue.created_at
+            waiting_time = int(delta.total_seconds() / 60)
+            
+        # 获取可能的检查结果
+        from diagnosis.models.medical_record import MedicalExam
+        exam_result = MedicalExam.query.filter_by(patient_id=patient.id).order_by(MedicalExam.exam_time.desc()).first()
+        
+        # 判断是否为当前用户
+        from flask_jwt_extended import get_jwt_identity
+        current_user_id = get_jwt_identity() if get_jwt_identity() else 0
+        is_current_user = (current_user_id == patient.id)
+        
         return {
-            'id': 101,
-            'name': '张三',
-            'age': 45,
-            'gender': '男',
-            'symptom': '头痛、发热',
-            'waitingTime': 15,
-            'examResult': '体温38.5°C',
-            'isCurrentUser': False
+            'id': patient.id,
+            'name': patient.name,
+            'age': patient.calculate_age() if hasattr(patient, 'calculate_age') else None,
+            'gender': patient.gender,
+            'symptom': current_queue.visit_reason,
+            'waitingTime': waiting_time,
+            'examResult': exam_result.result if exam_result else '',
+            'isCurrentUser': is_current_user
         }
     
     @staticmethod
     def get_queue_list():
         """获取当前队列列表"""
-        # 模拟队列列表，实际应从数据库获取并根据医生ID筛选
+        from users.models.patient import Patient  # 引入患者模型
+        
+        # 获取等待中的队列
+        queues = Queue.query.filter_by(status='waiting').order_by(Queue.created_at).all()
         patients = []
-        for i in range(1, 6):
+        
+        for queue in queues:
+            # 获取患者基本信息
+            patient = Patient.query.get(queue.patient_id)
+            if not patient:
+                continue
+                
+            # 计算等待时间（分钟）
+            waiting_time = 0
+            if queue.created_at:
+                import datetime
+                delta = datetime.datetime.utcnow() - queue.created_at
+                waiting_time = int(delta.total_seconds() / 60)
+                
+            # 判断是否为当前用户
+            from flask_jwt_extended import get_jwt_identity
+            current_user_id = get_jwt_identity() if get_jwt_identity() else 0
+            is_current_user = (current_user_id == patient.id)
+            
             patients.append({
-                'id': 100 + i,
-                'name': f'患者{i}',
-                'age': 20 + i * 5,
-                'gender': '男' if i % 2 == 0 else '女',
-                'symptom': '常见症状描述',
-                'waitingTime': i * 10,
-                'examResult': '' if i > 2 else '检查结果描述',
-                'isCurrentUser': False
+                'id': patient.id,
+                'name': patient.name,
+                'age': patient.calculate_age() if hasattr(patient, 'calculate_age') else None,
+                'gender': patient.gender,
+                'symptom': queue.visit_reason,
+                'waitingTime': waiting_time,
+                'examResult': '',  # 排队中的患者通常没有检查结果
+                'isCurrentUser': is_current_user
             })
+            
         return patients
     
     @staticmethod

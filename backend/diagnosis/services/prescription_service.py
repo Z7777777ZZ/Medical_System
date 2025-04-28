@@ -33,7 +33,7 @@ class PrescriptionService:
             prescription = Prescription(
                 patient_id=data.get('patientId'),
                 doctor_id=data.get('doctorId', 1),  # 默认为当前医生
-                diagnosis=data.get('diagnosis', '')
+                instructions=data.get('instructions', '')
             )
             
             db.session.add(prescription)
@@ -43,12 +43,10 @@ class PrescriptionService:
             if 'medicines' in data and isinstance(data['medicines'], list):
                 for med_data in data['medicines']:
                     detail = PrescriptionDetail(
-                        prescription_id=prescription.prescription_id,
+                        prescription_id=prescription.prescription_id,  # 使用更新后的字段名
                         medicine_id=med_data.get('medicineId'),
-                        dosage=med_data.get('dosage', ''),
-                        frequency=med_data.get('frequency', ''),
-                        duration=med_data.get('duration', ''),
-                        instructions=med_data.get('instructions', '')
+                        quantity=med_data.get('quantity', 1),
+                        instructions=med_data.get('usage', '')  # 使用instructions字段存储usage
                     )
                     db.session.add(detail)
             
@@ -94,6 +92,9 @@ class PrescriptionService:
             
             if 'status' in data:
                 prescription.status = data['status']
+                
+            if 'instructions' in data:
+                prescription.instructions = data['instructions']
             
             # 如果提供了新的药品列表，先删除旧的明细
             if 'medicines' in data and isinstance(data['medicines'], list):
@@ -105,10 +106,8 @@ class PrescriptionService:
                     detail = PrescriptionDetail(
                         prescription_id=prescription_id,
                         medicine_id=med_data.get('medicineId'),
-                        dosage=med_data.get('dosage', ''),
-                        frequency=med_data.get('frequency', ''),
-                        duration=med_data.get('duration', ''),
-                        instructions=med_data.get('instructions', '')
+                        quantity=med_data.get('quantity', 1),
+                        instructions=med_data.get('usage', '')  # 使用instructions字段存储usage
                     )
                     db.session.add(detail)
             
