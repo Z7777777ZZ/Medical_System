@@ -20,3 +20,9 @@ class Config:
     # Flask-RestX配置
     RESTX_MASK_SWAGGER = False  # 禁用Swagger UI中的掩码功能
     RESTX_MASK_HEADER = None    # 移除X-Fields头信息
+    
+    #SQL连接池
+    SQLALCHEMY_POOL_SIZE = 500         # 连接池大小
+    SQLALCHEMY_MAX_OVERFLOW = 10       # 最大溢出数量
+    SQLALCHEMY_POOL_TIMEOUT = 1       # 获取连接超时(秒)
+    SQLALCHEMY_POOL_RECYCLE = 500    

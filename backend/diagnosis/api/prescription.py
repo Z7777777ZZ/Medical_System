@@ -66,15 +66,22 @@ class PrescriptionList(Resource):
         """创建新处方"""
         data = request.json
         
-        prescription = Prescription(
-            patient_id=data['patientId'],
-            doctor_id=data['doctorId'],
-            instructions=data.get('instructions', ''),
-            status=data.get('status', 'pending')
-        )
+        try:
         
-        db.session.add(prescription)
-        db.session.flush()  # 获取新处方ID
+            prescription = Prescription(
+                patient_id=data['patientId'],
+                doctor_id=data['doctorId'],
+                instructions=data.get('instructions', ''),
+                status=data.get('status', 'pending')
+            )
+            
+            db.session.add(prescription)
+            db.session.flush()  # 获取新处方ID
+        except Exception as e:
+            #如果是外键约束错误，回滚
+            db.session.rollback()
+            logging.error(f"创建处方失败: {str(e)}")
+            api.abort(400, f"创建处方失败: {str(e)}")
         
         # 添加处方明细
         for med in data['medicines']:
@@ -86,12 +93,29 @@ class PrescriptionList(Resource):
             )
             db.session.add(detail)
         
+        # 在提交前保存必要的数据
+        prescription_id = prescription.prescription_id
+        patient_id = prescription.patient_id
+        doctor_id = prescription.doctor_id
+        created_at = prescription.created_at
+        instructions = prescription.instructions
+        status = prescription.status
+        
         db.session.commit()
         
-        # 返回完整的处方信息
-        result = prescription.to_dict()
+        # 构建返回结果
+        result = {
+            'id': prescription_id,
+            'patientId': patient_id,
+            'doctorId': doctor_id,
+            'date': created_at.isoformat() if created_at else None,
+            'instructions': instructions,
+            'status': status,
+            'medicines': []
+        }
+        
         # 补充药品信息
-        details = PrescriptionDetail.query.filter_by(prescription_id=prescription.prescription_id).all()
+        details = PrescriptionDetail.query.filter_by(prescription_id=prescription_id).all()
         medicines_list = []
         
         for detail in details:
@@ -108,6 +132,10 @@ class PrescriptionList(Resource):
                 medicines_list.append(med_dict)
         
         result['medicines'] = medicines_list
+        
+        # 现在可以安全地移除会话
+        db.session.remove()
+        
         return result, 201
 
     @api.doc('获取处方列表')
