@@ -243,4 +243,15 @@ INSERT INTO queues (patient_id, doctor_id, queue_number, status, priority, creat
 (2, 2, 2, 'called', FALSE, '2023-10-02 09:45:00'),
 (3, 3, 1, 'waiting', FALSE, '2023-10-03 13:50:00'),
 (4, 4, 1, 'waiting', TRUE, '2023-10-04 14:30:00'),
-(1, 5, 3, 'waiting', FALSE, '2023-10-05 08:45:00');
+(1, 5, 3, 'waiting', FALSE, '2023-10-05 08:45:00'),
+-- 添加更多可被取消的挂号测试数据
+(1, 2, 4, 'waiting', FALSE, '2023-10-06 09:00:00'),
+(2, 3, 3, 'waiting', FALSE, '2023-10-06 09:15:00'),
+(3, 1, 2, 'waiting', FALSE, '2023-10-06 09:30:00'),
+(4, 5, 2, 'waiting', FALSE, '2023-10-06 10:00:00'),
+(1, 3, 5, 'waiting', TRUE, '2023-10-06 10:15:00'),
+(2, 4, 4, 'waiting', FALSE, '2023-10-06 10:30:00'),
+(3, 5, 4, 'waiting', TRUE, '2023-10-06 11:00:00'),
+(4, 1, 3, 'waiting', FALSE, '2023-10-06 11:15:00'),
+(1, 4, 6, 'waiting', FALSE, '2023-10-06 13:00:00'),
+(2, 5, 5, 'waiting', FALSE, '2023-10-06 13:30:00');

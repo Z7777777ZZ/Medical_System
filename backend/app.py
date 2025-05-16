@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, _request_ctx_stack
+from flask import Flask, jsonify, _request_ctx_stack, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -61,41 +61,70 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     CORS(app)
     jwt.init_app(app)
-    api.init_app(app)
-
-    # Register blueprints and namespaces
+    api.init_app(app)    # Register blueprints and namespaces
     from call_number.api import bp as call_number_bp
     app.register_blueprint(call_number_bp, url_prefix='/api/call-number')
 
     from diagnosis.api import bp as diagnosis_bp
     app.register_blueprint(diagnosis_bp, url_prefix='/api/diagnosis')
 
+    from users.api import bp as users_bp
+    app.register_blueprint(users_bp, url_prefix='/api/users')
+
     # Import and register namespaces
     from diagnosis.api.prescription import api as prescription_ns
     from call_number.api.queue import api as queue_ns
+    from users.api.patient import api as patient_ns
+    from users.api.health import api as health_ns
 
     # 添加命名空间到API
     api.add_namespace(prescription_ns, path='/api/diagnosis/prescription')
     api.add_namespace(queue_ns, path='/api/call-number/queue')
-
-    # 导入模型以确保它们被创建
+    api.add_namespace(patient_ns, path='/api/users/patients')
+    api.add_namespace(health_ns, path='/api/users/health')# 导入模型以确保它们被创建
     from call_number.models.queue import Queue
     from diagnosis.models.prescription import Prescription, Medicine, PrescriptionDetail
     from users.models.patient import Patient
     from users.models.doctor import Doctor
-
-    # Create database tables
+    from users.models.patient_detail import PatientDetail    # Create database tables
     with app.app_context():
         db.create_all()
 
-    # 错误处理
+    # 数据库连接健康检查中间件
+    @app.before_request
+    def ensure_db_connection():
+        """确保数据库连接在每次请求前是正常的"""
+        try:
+            # 尝试进行一个简单的查询以验证连接状态
+            db.session.execute("SELECT 1")
+        except Exception as e:
+            logging.error(f"数据库连接检查失败: {e}")
+            # 如果当前有活跃的事务，回滚它
+            if db.session.is_active:
+                db.session.rollback()
+            # 主动释放连接回到连接池
+            db.session.close()
+            return jsonify({'error': '数据库连接暂时不可用，请稍后重试'}), 503
+
+    # 请求后清理资源
+    @app.teardown_request
+    def shutdown_session(exception=None):
+        """确保在请求结束后释放数据库连接"""
+        db.session.close()
+        
+    # 高级错误处理
     @app.errorhandler(404)
     def not_found(error):
-        return jsonify({'error': 'Not found'}), 404
+        return jsonify({'error': 'Not found', 'path': request.path}), 404
 
     @app.errorhandler(500)
     def server_error(error):
-        return jsonify({'error': 'Server error'}), 500
+        logging.error(f"500错误: {str(error)}")
+        return jsonify({'error': 'Server error', 'message': str(error)}), 500
+        
+    @app.errorhandler(503)
+    def service_unavailable(error):
+        return jsonify({'error': '服务暂时不可用，请稍后重试'}), 503
 
     return app
 

@@ -1,10 +1,11 @@
+# filepath: e:\3spring\SE\Medical_System\backend\call_number\services\queue_service.py.new
 from datetime import datetime
 from app import db
 from call_number.models.queue import Queue
 from flask import current_app
 import random
 
-class QueueService:    
+class QueueService:
     @staticmethod
     def register_patient(data, patient_id, doctor_id=None):
         """
@@ -20,14 +21,15 @@ class QueueService:
         patient = Patient.query.get(patient_id)
         if not patient:
             return {"error": "患者不存在"}, 404
-            
+        
         # 如果指定了医生，检查医生是否存在
         if doctor_id is not None:
             doctor = Doctor.query.get(doctor_id)
             if not doctor:
                 return {"error": f"医生ID {doctor_id} 不存在"}, 404
         else:
-            # 如果未指定医生，尝试根据科室分配医生
+            # 如果未指定医生，从数据库中获取一个有效的医生ID
+            # 根据科室来选择医生
             department = data.get('department')
             if department:
                 # 根据科室查询医生
@@ -39,45 +41,50 @@ class QueueService:
                     doctor_id = result[0]
                 else:
                     # 如果找不到对应科室的医生，随机选择一个存在的医生
-                    doctor = Doctor.query.order_by(Doctor.doctor_id).first()
+                    doctor = Doctor.query.first()
                     if doctor:
                         doctor_id = doctor.doctor_id
                     else:
-                        return {"error": "未找到指定科室，且系统中没有可用的医生"}, 404
+                        return {"error": "系统中没有医生可分配"}, 500
             else:
                 # 如果没有指定科室，随机选择一个有效的医生ID
-                doctor = Doctor.query.order_by(Doctor.doctor_id).first()
+                doctor = Doctor.query.first()
                 if doctor:
                     doctor_id = doctor.doctor_id
                 else:
-                    return {"error": "系统中没有医生可分配"}, 404
+                    return {"error": "系统中没有医生可分配"}, 500
         
-        # 生成队列号: 科室代码 + 日期 + 序号
-        department_code = data.get('department', 'GEN')[:3].upper()
-        date_code = datetime.now().strftime('%Y%m%d')
-        
-        # 使用显式查询获取当天同科室的队列数量
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        queue_count = Queue.query.filter(
-            Queue.doctor_id == doctor_id,
-            Queue.created_at >= today_start
-        ).count()
-        
-        # 生成序号，使用实际计数值
-        sequence = queue_count + 1
-        queue_number = sequence  # 使用整数队列号
-        
-        # 创建队列记录
-        queue = Queue(
-            patient_id=patient_id,
-            doctor_id=doctor_id,
-            queue_number=queue_number,
-            status='waiting',
-            priority=data.get('priority', False)
-        )
-        
-        db.session.add(queue)
-        db.session.commit()
+        try:
+            # 生成队列号: 科室代码 + 日期 + 序号
+            department_code = data.get('department', 'GEN')[:3].upper()
+            date_code = datetime.now().strftime('%Y%m%d')
+            
+            # 使用显式查询获取当天同科室的队列数量
+            today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            queue_count = Queue.query.filter(
+                Queue.doctor_id == doctor_id,
+                Queue.created_at >= today_start
+            ).count()
+            
+            # 生成序号，使用实际计数值
+            sequence = queue_count + 1
+            queue_number = sequence  # 使用整数队列号
+            
+            # 创建队列记录
+            queue = Queue(
+                patient_id=patient_id,
+                doctor_id=doctor_id,
+                queue_number=queue_number,
+                status='waiting',
+                priority=data.get('priority', False)
+            )
+            
+            db.session.add(queue)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"挂号失败: {str(e)}")
+            return {"error": f"挂号失败: {str(e)}"}, 500
         
         # 计算前面等待人数
         ahead_count = Queue.query.filter(
@@ -261,12 +268,6 @@ class QueueService:
             # 为了避免耦合，先TODO
             #输出一个warning，后续可以考虑使用JWT来获取当前用户ID
             
-
-            
-            
-              # from flask_jwt_extended import get_jwt_identity
-            # current_user_id = get_jwt_identity() if get_jwt_identity() else 0
-            # is_current_user = (current_user_id == patient.id)
             is_current_user = False
             patients.append({
             'id': patient.patient_id,
