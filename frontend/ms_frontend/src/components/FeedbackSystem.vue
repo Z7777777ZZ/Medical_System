@@ -47,9 +47,11 @@
       <!-- 图片上传 -->
       <el-form-item label="上传截图（可选）">
         <el-upload
+          action="https://picui.cn/upload"
           list-type="picture-card"
           :on-preview="handlePictureCardPreview"
           :on-remove="handleRemove"
+          :on-success="handleUploadSuccess"
           :file-list="fileList"
           :limit="3"
           :on-exceed="handleExceed"
@@ -95,6 +97,21 @@
           <template #default="scope">
             <el-button size="small" @click="viewFeedback(scope.row)">查看</el-button>
             <el-button size="small" type="danger" @click="deleteFeedback(scope.row.id)" style="margin-left: 8px;">撤回</el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="图片" align="center">
+          <template #default="scope">
+            <div v-if="scope.row.images && scope.row.images.length">
+              <el-image
+                v-for="(img, idx) in scope.row.images"
+                :key="idx"
+                :src="img"
+                :preview-src-list="scope.row.images"
+                style="width: 40px; height: 40px; margin-right: 4px; border-radius: 4px; object-fit: cover;"
+                fit="cover"
+              />
+            </div>
+            <span v-else style="color:#bbb">无</span>
           </template>
         </el-table-column>
       </el-table>
@@ -199,16 +216,18 @@ export default {
       }
       return isImage && isLt2M
     },
-    handleUpload(file) {
-      // 模拟上传成功后将图片 URL 添加到 feedbackForm.images
-      const fakeUrl = URL.createObjectURL(file)
-      this.feedbackForm.images.push(fakeUrl)
-      this.fileList.push({
-        name: file.name,
-        url: fakeUrl,
-        uid: file.uid
-      })
-      this.$message.success('图片已添加！')
+    handleUploadSuccess(response, file, fileList) {
+      // picui.cn 返回 {code: 200, data: {url: 'xxx'}}
+      if (response && response.code === 200 && response.data && response.data.url) {
+        this.feedbackForm.images.push(response.data.url)
+        // 更新 fileList 里的 url，保证预览和提交一致
+        const idx = fileList.findIndex(f => f.uid === file.uid)
+        if (idx !== -1) fileList[idx].url = response.data.url
+        this.fileList = fileList
+        this.$message.success('图片上传成功！')
+      } else {
+        this.$message.error('图片上传失败，请重试')
+      }
     },
     async fetchHistory() {
       this.loadingHistory = true
@@ -228,7 +247,8 @@ export default {
     async submitForm() {
       this.submitting = true
       try {
-        this.feedbackForm.images = this.fileList.map(f => f.url || f.response?.url || '')
+        // 只保留图片url
+        this.feedbackForm.images = this.fileList.map(f => f.url)
         const payload = {
           rating: this.feedbackForm.rating,
           categoryRatings: {
