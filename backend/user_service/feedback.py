@@ -9,7 +9,7 @@ feedback_bp = Blueprint('feedbacks', __name__)
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
-    'password': '*****', # 本地数据库密码
+    'password': 'your_password', # 本地数据库密码
     'database': 'medical_system',
     'charset': 'utf8mb4'
 }
@@ -80,5 +80,23 @@ def get_feedbacks():
         return jsonify({'success': True, 'data': feedbacks})
     except Exception as e:
         return jsonify({'success': False, 'msg': f'获取失败: {str(e)}'})
+    finally:
+        conn.close()
+
+@feedback_bp.route('/feedbacks/<int:feedback_id>', methods=['DELETE'])
+def delete_feedback(feedback_id):
+    """撤回单条反馈记录"""
+    conn = get_db_conn()
+    try:
+        with conn.cursor() as cursor:
+            sql = "DELETE FROM feedbacks WHERE id = %s"
+            cursor.execute(sql, (feedback_id,))
+            conn.commit()
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'msg': '反馈记录不存在'}), 404
+        return jsonify({'success': True, 'msg': '反馈记录已撤回'})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'msg': f'撤回失败: {str(e)}'}), 500
     finally:
         conn.close()
