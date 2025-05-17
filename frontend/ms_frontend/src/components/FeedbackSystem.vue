@@ -47,13 +47,13 @@
       <!-- 图片上传 -->
       <el-form-item label="上传截图（可选）">
         <el-upload
-          action="https://your-upload-api.com"
           list-type="picture-card"
           :on-preview="handlePictureCardPreview"
           :on-remove="handleRemove"
           :file-list="fileList"
           :limit="3"
           :on-exceed="handleExceed"
+          :before-upload="beforeUpload"
         >
           <el-icon><Plus /></el-icon>
         </el-upload>
@@ -89,43 +89,39 @@
     <!-- 历史反馈展示 -->
     <el-card v-if="showHistory" class="history-card" style="margin-top: 32px;">
       <h3 style="margin-bottom: 16px;">历史反馈记录</h3>
-      <el-table :data="feedbackHistory" style="width: 100%" v-loading="loadingHistory">
-        <el-table-column prop="created_at" label="提交时间" width="160" />
-        <el-table-column prop="rating" label="满意度" width="90">
+      <el-table :data="limitedFeedbackHistory" style="width: 100%" border>
+        <el-table-column prop="created_at" label="提交时间" align="center"></el-table-column>
+        <el-table-column label="操作" align="center">
           <template #default="scope">
-            <el-rate v-model="scope.row.rating" disabled :max="5" style="font-size: 16px;" />
+            <el-button size="small" @click="viewFeedback(scope.row)">查看</el-button>
+            <el-button size="small" type="danger" @click="deleteFeedback(scope.row.id)" style="margin-left: 8px;">撤回</el-button>
           </template>
         </el-table-column>
-        <el-table-column label="服务态度" width="90">
-          <template #default="scope">
-            <el-rate v-model="scope.row.categoryRatings.service" disabled :max="5" style="font-size: 16px;" />
-          </template>
-        </el-table-column>
-        <el-table-column label="界面设计" width="90">
-          <template #default="scope">
-            <el-rate v-model="scope.row.categoryRatings.interface" disabled :max="5" style="font-size: 16px;" />
-          </template>
-        </el-table-column>
-        <el-table-column label="功能完整性" width="90">
-          <template #default="scope">
-            <el-rate v-model="scope.row.categoryRatings.function" disabled :max="5" style="font-size: 16px;" />
-          </template>
-        </el-table-column>
-        <el-table-column label="系统性能" width="90">
-          <template #default="scope">
-            <el-rate v-model="scope.row.categoryRatings.performance" disabled :max="5" style="font-size: 16px;" />
-          </template>
-        </el-table-column>
-        <el-table-column prop="content" label="反馈内容" />
-        <el-table-column prop="contact" label="联系方式" width="160" />
       </el-table>
+      <div v-if="feedbackHistory.length > 3" style="text-align: center; margin-top: 16px;">
+        <el-button type="text" @click="showAllFeedback = !showAllFeedback">
+          {{ showAllFeedback ? '收起' : '查看更多' }}
+        </el-button>
+      </div>
       <div v-if="!loadingHistory && feedbackHistory.length === 0" style="text-align:center;color:#aaa;padding:24px;">暂无历史反馈</div>
     </el-card>
+
+    <el-dialog v-model="feedbackDetailDialogVisible" title="反馈详情" :width="'600px'">
+      <div v-if="selectedFeedback" style="max-height: 400px; overflow-y: auto;">
+        <p><strong>提交时间：</strong>{{ selectedFeedback.created_at }}</p>
+        <p><strong>满意度：</strong>{{ selectedFeedback.rating }}</p>
+        <p><strong>服务态度：</strong>{{ selectedFeedback.categoryRatings.service }}</p>
+        <p><strong>界面设计：</strong>{{ selectedFeedback.categoryRatings.interface }}</p>
+        <p><strong>功能完整性：</strong>{{ selectedFeedback.categoryRatings.function }}</p>
+        <p><strong>系统性能：</strong>{{ selectedFeedback.categoryRatings.performance }}</p>
+        <p><strong>反馈内容：</strong>{{ selectedFeedback.content }}</p>
+        <p><strong>联系方式：</strong>{{ selectedFeedback.contact }}</p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { ref, reactive, watch } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
@@ -133,137 +129,170 @@ import axios from 'axios'
 export default {
   name: 'FeedbackSystem',
   components: { Plus },
-  setup() {
-    const feedbackForm = reactive({
-      rating: 0,
-      categoryRatings: {
-        service: 0,
-        interface: 0,
-        function: 0,
-        performance: 0
+  data() {
+    return {
+      feedbackForm: {
+        rating: 0,
+        categoryRatings: {
+          service: 0,
+          interface: 0,
+          function: 0,
+          performance: 0
+        },
+        content: '',
+        contact: '',
+        images: []
       },
-      content: '',
-      contact: '',
-      images: []
-    })
-
-    const rules = {
-      rating: [
-        { required: true, message: '请选择整体满意度', trigger: 'blur' }
+      rules: {
+        rating: [
+          { required: true, message: '请选择整体满意度', trigger: 'blur' }
+        ],
+        content: [
+          { required: true, message: '请填写反馈内容', trigger: 'blur' },
+          { min: 10, message: '反馈内容至少10个字符', trigger: 'blur' }
+        ]
+      },
+      ratingCategories: [
+        { key: 'service', label: '服务态度' },
+        { key: 'interface', label: '界面设计' },
+        { key: 'function', label: '功能完整性' },
+        { key: 'performance', label: '系统性能' }
       ],
-      content: [
-        { required: true, message: '请填写反馈内容', trigger: 'blur' },
-        { min: 10, message: '反馈内容至少10个字符', trigger: 'blur' }
-      ]
+      fileList: [],
+      dialogImageUrl: '',
+      dialogVisible: false,
+      submitting: false,
+      showHistory: false,
+      loadingHistory: false,
+      feedbackHistory: [],
+      feedbackDetailDialogVisible: false,
+      selectedFeedback: null,
+      showAllFeedback: false
     }
-
-    const ratingCategories = ref([
-      { key: 'service', label: '服务态度' },
-      { key: 'interface', label: '界面设计' },
-      { key: 'function', label: '功能完整性' },
-      { key: 'performance', label: '系统性能' }
-    ])
-
-    const fileList = ref([])
-    const dialogImageUrl = ref('')
-    const dialogVisible = ref(false)
-    const submitting = ref(false)
-    const showHistory = ref(false)
-    const loadingHistory = ref(false)
-    const feedbackHistory = ref([])
-
-    const handleRemove = (file) => {
-      fileList.value = fileList.value.filter(f => f.uid !== file.uid)
-      feedbackForm.images = fileList.value.map(f => f.url || f.response?.url || '')
+  },
+  computed: {
+    limitedFeedbackHistory() {
+      return this.showAllFeedback ? this.feedbackHistory : this.feedbackHistory.slice(0, 3);
     }
-
-    const handlePictureCardPreview = (file) => {
-      dialogImageUrl.value = file.url || file.response?.url || ''
-      dialogVisible.value = true
-    }
-
-    const handleExceed = () => {
+  },
+  methods: {
+    handleRemove(file) {
+      const fileUrl = file.url || file.response?.url
+      this.feedbackForm.images = this.feedbackForm.images.filter(url => url !== fileUrl)
+      this.fileList = this.fileList.filter(f => f.uid !== file.uid)
+    },
+    handlePictureCardPreview(file) {
+      this.dialogImageUrl = file.url || file.response?.url || ''
+      this.dialogVisible = true
+    },
+    handleExceed() {
       ElMessage.warning('最多只能上传3张图片')
-    }
-
-    // 获取历史反馈
-    const fetchHistory = async () => {
-      loadingHistory.value = true
+    },
+    beforeUpload(file) {
+      const isImage = file.type.startsWith('image/')
+      const isLt2M = file.size / 1024 / 1024 < 2
+      if (!isImage) {
+        this.$message.error('只能上传图片文件！')
+      }
+      if (!isLt2M) {
+        this.$message.error('图片大小不能超过 2MB！')
+      }
+      return isImage && isLt2M
+    },
+    handleUpload(file) {
+      // 模拟上传成功后将图片 URL 添加到 feedbackForm.images
+      const fakeUrl = URL.createObjectURL(file)
+      this.feedbackForm.images.push(fakeUrl)
+      this.fileList.push({
+        name: file.name,
+        url: fakeUrl,
+        uid: file.uid
+      })
+      this.$message.success('图片已添加！')
+    },
+    async fetchHistory() {
+      this.loadingHistory = true
       try {
         const res = await axios.get('/api/feedbacks')
         if (res.data.success) {
-          // 直接使用后端返回的所有数据作为历史反馈
-          feedbackHistory.value = res.data.data || []
+          this.feedbackHistory = res.data.data || []
         } else {
           ElMessage.error(res.data.msg || '获取历史反馈失败')
         }
       } catch (e) {
         ElMessage.error('获取历史反馈失败')
       } finally {
-        loadingHistory.value = false
+        this.loadingHistory = false
       }
-    }
-
-    // 监听showHistory变化，自动加载历史反馈
-    watch(showHistory, (val) => {
-      if (val) fetchHistory()
-    })
-
-    // 提交反馈
-    const submitForm = async () => {
-      submitting.value = true
+    },
+    async submitForm() {
+      this.submitting = true
       try {
-        // 组装图片url
-        feedbackForm.images = fileList.value.map(f => f.url || f.response?.url || '')        // 组装后端需要的字段格式
+        this.feedbackForm.images = this.fileList.map(f => f.url || f.response?.url || '')
         const payload = {
-          rating: feedbackForm.rating,
+          rating: this.feedbackForm.rating,
           categoryRatings: {
-            service: feedbackForm.categoryRatings.service,
-            interface: feedbackForm.categoryRatings.interface,
-            function: feedbackForm.categoryRatings.function,
-            performance: feedbackForm.categoryRatings.performance
+            service: this.feedbackForm.categoryRatings.service,
+            interface: this.feedbackForm.categoryRatings.interface,
+            function: this.feedbackForm.categoryRatings.function,
+            performance: this.feedbackForm.categoryRatings.performance
           },
-          content: feedbackForm.content,
-          contact: feedbackForm.contact,
-          images: feedbackForm.images
+          content: this.feedbackForm.content,
+          contact: this.feedbackForm.contact,
+          images: this.feedbackForm.images
         }
         const res = await axios.post('/api/feedbacks', payload)
         if (res.data.success) {
           ElMessage.success('反馈提交成功！感谢您的宝贵意见')
-          // 清空表单
-          feedbackForm.rating = 0
-          feedbackForm.categoryRatings = { service: 0, interface: 0, function: 0, performance: 0 }
-          feedbackForm.content = ''
-          feedbackForm.contact = ''
-          feedbackForm.images = []
-          fileList.value = []
-          // 刷新历史反馈
-          if (showHistory.value) fetchHistory()
+          this.resetForm()
+          if (this.showHistory) this.fetchHistory()
         } else {
           ElMessage.error(res.data.msg || '提交失败')
         }
       } catch (e) {
         ElMessage.error('提交失败')
       } finally {
-        submitting.value = false
+        this.submitting = false
       }
+    },
+    resetForm() {
+      this.feedbackForm.rating = 0
+      this.feedbackForm.categoryRatings = { service: 0, interface: 0, function: 0, performance: 0 }
+      this.feedbackForm.content = ''
+      this.feedbackForm.contact = ''
+      this.feedbackForm.images = []
+      this.fileList = []
+    },
+    async deleteFeedback(id) {
+      try {
+        const confirm = await this.$confirm('确定要撤回这条反馈记录吗？', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+        if (confirm) {
+          const response = await axios.delete(`/api/feedbacks/${id}`);
+          if (response.data.success) {
+            this.$message.success('反馈记录已撤回');
+            this.feedbackHistory = this.feedbackHistory.filter(feedback => feedback.id !== id);
+          } else {
+            this.$message.error(response.data.msg || '撤回失败');
+          }
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          this.$message.error('请求失败，请稍后重试');
+        }
+      }
+    },
+    viewFeedback(feedback) {
+      this.selectedFeedback = feedback;
+      this.feedbackDetailDialogVisible = true;
     }
-
-    return {
-      feedbackForm,
-      rules,
-      ratingCategories,
-      fileList,
-      dialogImageUrl,
-      dialogVisible,
-      submitting,
-      showHistory,
-      loadingHistory,
-      feedbackHistory,
-      handleRemove,
-      handlePictureCardPreview,
-      handleExceed,
-      submitForm
+  },
+  watch: {
+    showHistory(val) {
+      if (val) this.fetchHistory()
     }
   }
 }

@@ -25,20 +25,37 @@
 
     <!-- 消息列表模块 -->
     <el-card class="msg-list-card">
-      <el-table :data="messages" style="width: 100%">
+      <el-table :data="limitedMessages" style="width: 100%">
         <el-table-column prop="title" label="消息标题"></el-table-column>
-        <el-table-column prop="date" label="日期"></el-table-column>
+        <el-table-column prop="publish_time" label="日期"></el-table-column>
         <el-table-column label="操作">
-          <template #default>
-            <el-button size="small">查看</el-button>
+          <template #default="scope">
+            <el-button size="small" @click="viewMessage(scope.row.id)">查看</el-button>
+            <el-button size="small" type="danger" @click="deleteMessage(scope.row.id)" style="margin-left: 8px;">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="messages.length > 3" style="text-align: center; margin-top: 16px;">
+        <el-button type="text" @click="showAllMessages = !showAllMessages">
+          {{ showAllMessages ? '收起' : '查看更多' }}
+        </el-button>
+      </div>
     </el-card>
+
+    <!-- 消息详情弹窗 -->
+    <el-dialog v-model="dialogVisible" title="消息详情" :width="'600px'">
+      <div style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
+        <p><strong>标题：</strong>{{ messageDetail.title }}</p>
+        <p><strong>发布时间：</strong>{{ messageDetail.publish_time }}</p>
+        <p><strong>内容：</strong>{{ messageDetail.content }}</p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
   name: 'MessagePush',
   data() {
@@ -46,13 +63,79 @@ export default {
       receiveMessages: true,
       showChannelSetting: false,
       channels: ['站内信'],
-      messages: [
-        { title: '系统更新通知', date: '2023-05-01' },
-        { title: '维护公告', date: '2023-04-28' }
-      ]
+      messages: [],
+      showAllMessages: false,
+      dialogVisible: false,
+      messageDetail: {}
+    };
+  },
+  computed: {
+    limitedMessages() {
+      return this.showAllMessages ? this.messages : this.messages.slice(0, 3);
     }
+  },
+  methods: {
+    async fetchMessages() {
+      try {
+        const response = await axios.get('/api/messages'); // 更新路径
+        if (response.data.success) {
+          this.messages = response.data.data;
+          this.updateLimitedMessages();
+        } else {
+          this.$message.error('获取消息列表失败');
+        }
+      } catch (error) {
+        this.$message.error('请求失败，请稍后重试');
+      }
+    },
+    updateLimitedMessages() {
+      this.limitedMessages = this.showAllMessages ? this.messages : this.messages.slice(0, 3);
+    },
+    async viewMessage(id) {
+      try {
+        const response = await axios.get(`/api/messages/${id}`); // 更新路径
+        if (response.data.success) {
+          this.messageDetail = response.data.data;
+          this.dialogVisible = true;
+        } else {
+          this.$message.error('获取消息详情失败');
+        }
+      } catch (error) {
+        this.$message.error('请求失败，请稍后重试');
+      }
+    },
+    async deleteMessage(id) {
+      try {
+        const confirm = await this.$confirm('确定要删除这条消息吗？', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+        if (confirm) {
+          const response = await axios.delete(`/api/messages/${id}`);
+          if (response.data.success) {
+            this.$message.success('消息已删除');
+            this.messages = this.messages.filter(message => message.id !== id);
+          } else {
+            this.$message.error(response.data.message || '删除失败');
+          }
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          this.$message.error('请求失败，请稍后重试');
+        }
+      }
+    }
+  },
+  watch: {
+    showAllMessages() {
+      this.updateLimitedMessages();
+    }
+  },
+  mounted() {
+    this.fetchMessages();
   }
-}
+};
 </script>
 
 <style scoped>
