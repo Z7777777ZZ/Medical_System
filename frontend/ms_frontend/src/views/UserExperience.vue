@@ -104,7 +104,7 @@
 
     <!-- 消息推送弹窗 -->
     <el-dialog v-model="showMessageDialog" title="消息推送设置" width="50%">
-      <MessagePush />
+      <MessagePush v-if="showMessageDialog" />
     </el-dialog>
   </div>
 </template>
