@@ -80,21 +80,60 @@
         >
           {{ submitting ? '提交中...' : '提交反馈' }}
         </el-button>
+        <el-button type="default" @click="showHistory = !showHistory" style="margin-left: 16px;">
+          {{ showHistory ? '收起历史反馈' : '查看历史反馈' }}
+        </el-button>
       </el-form-item>
     </el-form>
+
+    <!-- 历史反馈展示 -->
+    <el-card v-if="showHistory" class="history-card" style="margin-top: 32px;">
+      <h3 style="margin-bottom: 16px;">历史反馈记录</h3>
+      <el-table :data="feedbackHistory" style="width: 100%" v-loading="loadingHistory">
+        <el-table-column prop="created_at" label="提交时间" width="160" />
+        <el-table-column prop="rating" label="满意度" width="90">
+          <template #default="scope">
+            <el-rate v-model="scope.row.rating" disabled :max="5" style="font-size: 16px;" />
+          </template>
+        </el-table-column>
+        <el-table-column label="服务态度" width="90">
+          <template #default="scope">
+            <el-rate v-model="scope.row.categoryRatings.service" disabled :max="5" style="font-size: 16px;" />
+          </template>
+        </el-table-column>
+        <el-table-column label="界面设计" width="90">
+          <template #default="scope">
+            <el-rate v-model="scope.row.categoryRatings.interface" disabled :max="5" style="font-size: 16px;" />
+          </template>
+        </el-table-column>
+        <el-table-column label="功能完整性" width="90">
+          <template #default="scope">
+            <el-rate v-model="scope.row.categoryRatings.function" disabled :max="5" style="font-size: 16px;" />
+          </template>
+        </el-table-column>
+        <el-table-column label="系统性能" width="90">
+          <template #default="scope">
+            <el-rate v-model="scope.row.categoryRatings.performance" disabled :max="5" style="font-size: 16px;" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="content" label="反馈内容" />
+        <el-table-column prop="contact" label="联系方式" width="160" />
+      </el-table>
+      <div v-if="!loadingHistory && feedbackHistory.length === 0" style="text-align:center;color:#aaa;padding:24px;">暂无历史反馈</div>
+    </el-card>
   </div>
 </template>
 
 <script>
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 export default {
   name: 'FeedbackSystem',
   components: { Plus },
   setup() {
-    // 使用 reactive 确保响应式对象完整初始化
     const feedbackForm = reactive({
       rating: 0,
       categoryRatings: {
@@ -104,7 +143,8 @@ export default {
         performance: 0
       },
       content: '',
-      contact: ''
+      contact: '',
+      images: []
     })
 
     const rules = {
@@ -128,13 +168,17 @@ export default {
     const dialogImageUrl = ref('')
     const dialogVisible = ref(false)
     const submitting = ref(false)
+    const showHistory = ref(false)
+    const loadingHistory = ref(false)
+    const feedbackHistory = ref([])
 
     const handleRemove = (file) => {
-      console.log(file)
+      fileList.value = fileList.value.filter(f => f.uid !== file.uid)
+      feedbackForm.images = fileList.value.map(f => f.url || f.response?.url || '')
     }
 
     const handlePictureCardPreview = (file) => {
-      dialogImageUrl.value = file.url
+      dialogImageUrl.value = file.url || file.response?.url || ''
       dialogVisible.value = true
     }
 
@@ -142,13 +186,67 @@ export default {
       ElMessage.warning('最多只能上传3张图片')
     }
 
-    const submitForm = () => {
+    // 获取历史反馈
+    const fetchHistory = async () => {
+      loadingHistory.value = true
+      try {
+        const res = await axios.get('/api/feedbacks')
+        if (res.data.success) {
+          // 直接使用后端返回的所有数据作为历史反馈
+          feedbackHistory.value = res.data.data || []
+        } else {
+          ElMessage.error(res.data.msg || '获取历史反馈失败')
+        }
+      } catch (e) {
+        ElMessage.error('获取历史反馈失败')
+      } finally {
+        loadingHistory.value = false
+      }
+    }
+
+    // 监听showHistory变化，自动加载历史反馈
+    watch(showHistory, (val) => {
+      if (val) fetchHistory()
+    })
+
+    // 提交反馈
+    const submitForm = async () => {
       submitting.value = true
-      // 这里替换为实际的提交逻辑
-      setTimeout(() => {
-        ElMessage.success('反馈提交成功！感谢您的宝贵意见')
+      try {
+        // 组装图片url
+        feedbackForm.images = fileList.value.map(f => f.url || f.response?.url || '')        // 组装后端需要的字段格式
+        const payload = {
+          rating: feedbackForm.rating,
+          categoryRatings: {
+            service: feedbackForm.categoryRatings.service,
+            interface: feedbackForm.categoryRatings.interface,
+            function: feedbackForm.categoryRatings.function,
+            performance: feedbackForm.categoryRatings.performance
+          },
+          content: feedbackForm.content,
+          contact: feedbackForm.contact,
+          images: feedbackForm.images
+        }
+        const res = await axios.post('/api/feedbacks', payload)
+        if (res.data.success) {
+          ElMessage.success('反馈提交成功！感谢您的宝贵意见')
+          // 清空表单
+          feedbackForm.rating = 0
+          feedbackForm.categoryRatings = { service: 0, interface: 0, function: 0, performance: 0 }
+          feedbackForm.content = ''
+          feedbackForm.contact = ''
+          feedbackForm.images = []
+          fileList.value = []
+          // 刷新历史反馈
+          if (showHistory.value) fetchHistory()
+        } else {
+          ElMessage.error(res.data.msg || '提交失败')
+        }
+      } catch (e) {
+        ElMessage.error('提交失败')
+      } finally {
         submitting.value = false
-      }, 1500)
+      }
     }
 
     return {
@@ -159,6 +257,9 @@ export default {
       dialogImageUrl,
       dialogVisible,
       submitting,
+      showHistory,
+      loadingHistory,
+      feedbackHistory,
       handleRemove,
       handlePictureCardPreview,
       handleExceed,
@@ -232,5 +333,24 @@ export default {
 .submit-btn {
   width: 200px;
   margin-top: 20px;
+}
+
+.history-card {
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.el-table {
+  width: 100%;
+}
+
+.el-table th,
+.el-table td {
+  text-align: center;
+}
+
+.el-table .cell {
+  padding: 16px 0;
 }
 </style>
