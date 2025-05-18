@@ -1,4 +1,10 @@
-Flask==2.3.0
-SQLAlchemy==1.4.46
-PyMySQL==1.0.3
-flask-cors==3.0.10
+SQLAlchemy
+PyMySQL
+flask-cors
+flask-migrate
+flask-jwt-extended
+flask-sqlalchemy
+flask-cors
+pymysql
+Flask-Migrate
+flask
