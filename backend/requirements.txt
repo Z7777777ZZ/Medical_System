@@ -2,3 +2,11 @@ Flask==2.3.0
 SQLAlchemy==1.4.46
 PyMySQL==1.0.3
 flask-cors==3.0.10
+Werkzeug==2.3.0
+itsdangerous==2.1.2
+Jinja2==3.1.2
+MarkupSafe==2.1.2
+pyjwt==2.6.0
+python-dotenv==1.0.0
+requests==2.31.0
+email-validator==2.0.0
