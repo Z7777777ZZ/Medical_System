@@ -1,0 +1,112 @@
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS medical_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE medical_system;
+
+-- 创建医院表 (hospitals)
+CREATE TABLE IF NOT EXISTS hospitals (
+    hospital_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    address VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 创建科室表 (departments)
+CREATE TABLE IF NOT EXISTS departments (
+    department_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    hospital_id BIGINT NOT NULL,
+    FOREIGN KEY (hospital_id) REFERENCES hospitals(hospital_id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 创建患者表 (patients)
+CREATE TABLE IF NOT EXISTS patients (
+    patient_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    phone VARCHAR(20) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 创建医生表 (doctors)
+CREATE TABLE IF NOT EXISTS doctors (
+    doctor_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    phone VARCHAR(20) UNIQUE NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    hospital_id BIGINT NOT NULL,
+    department_id BIGINT NOT NULL,
+    specialty VARCHAR(100) NOT NULL,
+    bio TEXT,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (hospital_id) REFERENCES hospitals(hospital_id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (department_id) REFERENCES departments(department_id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 创建患者详情表 (patient_details)
+CREATE TABLE IF NOT EXISTS patient_details (
+    patient_id BIGINT PRIMARY KEY,
+    gender ENUM('male', 'female', 'other') NULL,
+    date_of_birth DATE NULL,
+    blood_type ENUM('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-') NULL,
+    height DECIMAL(5,2) NULL,
+    weight DECIMAL(5,2) NULL,
+    emergency_contact VARCHAR(100) NULL,
+    emergency_phone VARCHAR(20) NULL,
+    medical_insurance_id VARCHAR(50) NULL,
+    allergies TEXT NULL,
+    chronic_conditions TEXT NULL,
+    medications TEXT NULL,
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 插入医院数据
+   INSERT INTO hospitals (name, address) VALUES 
+   ('北京协和医院', '北京市东城区帅府园1号'),
+   ('上海瑞金医院', '上海市黄浦区瑞金二路197号'),
+   ('广州南方医院', '广州市白云区广花路1838号');
+   
+   -- 插入科室数据
+   INSERT INTO departments (name, hospital_id) VALUES 
+   ('内科', 1),
+   ('外科', 1),
+   ('妇产科', 1),
+   ('儿科', 1),
+   ('骨科', 2),
+   ('心脏内科', 2),
+   ('神经内科', 2),
+   ('急诊科', 3),
+   ('肿瘤科', 3),
+   ('眼科', 3);
+   
+   -- 插入医生数据
+   INSERT INTO doctors (phone, name, hospital_id, department_id, specialty, bio, password_hash, created_at) VALUES 
+   ('13800001111', '张伟', 1, 1, '呼吸系统疾病', '毕业于北京医科大学，从事呼吸系统疾病研究20年', SHA2('password123', 256), '2023-01-15 09:00:00'),
+   ('13800002222', '王芳', 1, 3, '妇科肿瘤', '妇科肿瘤专家，擅长妇科恶性肿瘤的诊断与治疗', SHA2('password123', 256), '2023-01-16 10:30:00'),
+   ('13800003333', '李明', 1, 2, '胃肠外科', '擅长微创手术和胃肠道肿瘤手术', SHA2('password123', 256), '2023-02-01 08:45:00'),
+   ('13800004444', '赵华', 2, 5, '骨折创伤', '专注于复杂骨折和创伤修复', SHA2('password123', 256), '2023-02-10 14:00:00'),
+   ('13800005555', '刘洋', 2, 6, '冠心病', '心脏介入治疗专家', SHA2('password123', 256), '2023-03-05 11:20:00'),
+   ('13800006666', '陈晓', 3, 9, '肺癌治疗', '肺癌靶向治疗和免疫治疗专家', SHA2('password123', 256), '2023-03-15 16:40:00'),
+   ('13800007777', '杨红', 3, 10, '白内障手术', '高级眼科医师，擅长各类眼科疾病诊疗', SHA2('password123', 256), '2023-04-01 09:15:00');
+   
+   -- 插入患者数据
+   INSERT INTO patients (phone, email, name, password_hash, created_at) VALUES 
+   ('13900001111', 'patient1@example.com', '张三', SHA2('patientpwd1', 256), '2023-05-01 10:00:00'),
+   ('13900002222', 'patient2@example.com', '李四', SHA2('patientpwd2', 256), '2023-05-02 11:30:00'),
+   ('13900003333', 'patient3@example.com', '王五', SHA2('patientpwd3', 256), '2023-05-03 14:20:00'),
+   ('13900004444', 'patient4@example.com', '赵六', SHA2('patientpwd4', 256), '2023-05-04 16:45:00'),
+   ('13900005555', 'patient5@example.com', '孙七', SHA2('patientpwd5', 256), '2023-05-05 09:15:00'),
+   ('13900006666', 'patient6@example.com', '周八', SHA2('patientpwd6', 256), '2023-05-06 13:40:00'),
+   ('13900007777', 'patient7@example.com', '吴九', SHA2('patientpwd7', 256), '2023-05-07 15:10:00'),
+   ('13900008888', 'patient8@example.com', '郑十', SHA2('patientpwd8', 256), '2023-05-08 10:50:00');
+   
+   -- 插入患者详细信息
+   INSERT INTO patient_details (patient_id, gender, date_of_birth, blood_type, height, weight, emergency_contact, emergency_phone, medical_insurance_id, allergies, chronic_conditions, medications) VALUES 
+   (1, 'male', '1980-06-15', 'A+', 178.5, 75.0, '张太太', '13911112222', 'INS123456', '青霉素', '高血压', '络活喜 5mg 每日一次'),
+   (2, 'female', '1985-03-22', 'B+', 165.0, 55.0, '李先生', '13922223333', 'INS234567', '无', '糖尿病', '二甲双胍 500mg 每日两次'),
+   (3, 'male', '1975-11-10', 'O+', 182.0, 80.0, '王妻子', '13933334444', 'INS345678', '磺胺类药物', '冠心病', '阿司匹林 100mg 每日一次'),
+   (4, 'female', '1990-08-05', 'AB+', 160.0, 50.0, '赵母亲', '13944445555', 'INS456789', '花粉过敏', '无', '无'),
+   (5, 'male', '1965-01-20', 'A-', 175.0, 70.0, '孙妻子', '13955556666', 'INS567890', '无', '高血脂', '立普妥 20mg 每晚一次'),
+   (6, 'female', '1988-04-30', 'O-', 168.0, 58.0, '周丈夫', '13966667777', 'INS678901', '海鲜', '哮喘', '舒利迭 100mcg 每日两次'),
+   (7, 'male', '1982-09-18', 'B-', 180.0, 85.0, '吴父亲', '13977778888', 'INS789012', '无', '无', '无'),
+   (8, 'female', '1995-12-25', 'AB-', 163.0, 52.0, '郑母亲', '13988889999', 'INS890123', '乳糖不耐', '贫血', '铁剂补充剂 每日一次');
