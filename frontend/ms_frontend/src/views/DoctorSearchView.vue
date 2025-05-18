@@ -76,46 +76,102 @@ export default {
             toSearch: '',
             Search,
             doctors: [
+                // {
+                //     name: '张医生',
+                //     phone: '13800138000',
+                //     hospital: '北京协和医院',
+                //     department: '心血管内科',
+                //     specialty: '冠心病、高血压',
+                //     bio: '从事心血管疾病诊疗20年，经验丰富'
+                // },
+                // {
+                //     name: '李医生',
+                //     phone: '13900139000',
+                //     hospital: '上海瑞金医院',
+                //     department: '神经外科',
+                //     specialty: '脑肿瘤、脑血管病',
+                //     bio: '神经外科主任医师，擅长微创手术'
+                // },
+                // {
+                //     name: '王医生',
+                //     phone: '13700137000',
+                //     hospital: '广州中山医院',
+                //     department: '儿科',
+                //     specialty: '儿童呼吸系统疾病',
+                //     bio: '儿科副主任医师，对儿童常见病有深入研究'
+                // },
+                // {
+                //     name: '赵医生',
+                //     phone: '13600136000',
+                //     hospital: '成都华西医院',
+                //     department: '骨科',
+                //     specialty: '关节置换、脊柱手术',
+                //     bio: '骨科主任医师，手术技术精湛'
+                // },
+                // {
+                //     name: '刘医生',
+                //     phone: '13500135000',
+                //     hospital: '武汉同济医院',
+                //     department: '眼科',
+                //     specialty: '白内障、青光眼',
+                //     bio: '眼科专家，已完成数千例眼科手术'
+                // },
                 {
-                    name: '张医生',
-                    phone: '13800138000',
+                    name: '张伟',
+                    phone: '13800001111',
                     hospital: '北京协和医院',
-                    department: '心血管内科',
-                    specialty: '冠心病、高血压',
-                    bio: '从事心血管疾病诊疗20年，经验丰富'
+                    department: '内科',
+                    specialty: '呼吸系统疾病',
+                    bio: '毕业于北京医科大学，从事呼吸系统疾病研究20年'
                 },
                 {
-                    name: '李医生',
-                    phone: '13900139000',
+                    name: '王芳',
+                    phone: '13800002222',
+                    hospital: '北京协和医院',
+                    department: '妇产科',
+                    specialty: '妇科肿瘤',
+                    bio: '妇科肿瘤专家，擅长妇科恶性肿瘤的诊断与治疗'
+                },
+                {
+                    name: '李明',
+                    phone: '13800003333',
+                    hospital: '北京协和医院',
+                    department: '外科',
+                    specialty: '胃肠外科',
+                    bio: '擅长微创手术和胃肠道肿瘤手术'
+                },
+                {
+                    name: '赵华',
+                    phone: '13800004444',
                     hospital: '上海瑞金医院',
-                    department: '神经外科',
-                    specialty: '脑肿瘤、脑血管病',
-                    bio: '神经外科主任医师，擅长微创手术'
-                },
-                {
-                    name: '王医生',
-                    phone: '13700137000',
-                    hospital: '广州中山医院',
-                    department: '儿科',
-                    specialty: '儿童呼吸系统疾病',
-                    bio: '儿科副主任医师，对儿童常见病有深入研究'
-                },
-                {
-                    name: '赵医生',
-                    phone: '13600136000',
-                    hospital: '成都华西医院',
                     department: '骨科',
-                    specialty: '关节置换、脊柱手术',
-                    bio: '骨科主任医师，手术技术精湛'
+                    specialty: '骨折创伤',
+                    bio: '专注于复杂骨折和创伤修复'
                 },
                 {
-                    name: '刘医生',
-                    phone: '13500135000',
-                    hospital: '武汉同济医院',
+                    name: '刘洋',
+                    phone: '13800005555',
+                    hospital: '上海瑞金医院',
+                    department: '心脏内科',
+                    specialty: '冠心病',
+                    bio: '心脏介入治疗专家'
+                },
+                {
+                    name: '陈晓',
+                    phone: '13800006666',
+                    hospital: '广州南方医院',
+                    department: '肿瘤科',
+                    specialty: '肺癌治疗',
+                    bio: '肺癌靶向治疗和免疫治疗专家'
+                },
+                {
+                    name: '杨红',
+                    phone: '13800007777',
+                    hospital: '广州南方医院',
                     department: '眼科',
-                    specialty: '白内障、青光眼',
-                    bio: '眼科专家，已完成数千例眼科手术'
-                }
+                    specialty: '白内障手术',
+                    bio: '高级眼科医师，擅长各类眼科疾病诊疗'
+                },
             ],
             filteredCards: []
         }

@@ -34,12 +34,24 @@
                 <el-divider />
                 
                 <div style="font-weight: bold; color: #409EFF; margin-bottom: 10px;">建议:</div>
-                <div style="margin-left: 20px;">{{ aiDiagnosis.suggestions }}</div>
+                <!-- <div style="margin-left: 20px;">{{ aiDiagnosis.suggestions }}</div> -->
+                <div style="margin-left: 20px;">
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <li v-for="(suggestion, index) in aiDiagnosis.suggestions" :key="index">
+                            {{ suggestion }}
+                        </li>
+                    </ul>
+                </div>
                 
                 <el-divider />
                 
                 <div style="font-weight: bold; color: #409EFF; margin-bottom: 10px;">紧急程度:</div>
                 <el-tag :type="urgencyTagType" size="large">{{ aiDiagnosis.urgencyLevel }}</el-tag>
+
+                <!-- 添加紧急程度备注显示 -->
+                <div v-if="aiDiagnosis.urgencyNote" style="font-weight: bold; margin-top: 10px; color: #666; font-size: 15px;">
+                    备注：{{ aiDiagnosis.urgencyNote }}
+                </div>
             </div>
 
             <!-- 推荐医生 -->
@@ -64,6 +76,7 @@
 <script>
 import { Promotion } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 export default {
     name: 'AIDiagnosisView',
@@ -77,8 +90,9 @@ export default {
             showResults: false,
             aiDiagnosis: {
                 possibleDiseases: [],
-                suggestions: '',
-                urgencyLevel: ''
+                suggestions: [],
+                urgencyLevel: '',
+                urgencyNote: '' // 添加备注字段
             },
             recommendedDoctors: [],
             // 模拟医生数据库
@@ -135,7 +149,24 @@ export default {
         }
     },
     methods: {
-        submitSymptoms() {
+        // submitSymptoms() {
+        //     if (!this.symptomDescription.trim()) {
+        //         ElMessage.warning('请输入症状描述');
+        //         return;
+        //     }
+
+        //     this.isLoading = true;
+            
+        //     // 模拟AI诊断延迟
+        //     setTimeout(() => {
+        //         this.generateAIDiagnosis();
+        //         this.recommendDoctors();
+        //         this.showResults = true;
+        //         this.isLoading = false;
+        //     }, 1500);
+        // },
+
+        async submitSymptoms() {
             if (!this.symptomDescription.trim()) {
                 ElMessage.warning('请输入症状描述');
                 return;
@@ -143,13 +174,30 @@ export default {
 
             this.isLoading = true;
             
-            // 模拟AI诊断延迟
-            setTimeout(() => {
-                this.generateAIDiagnosis();
+            try {
+                // 调用后端API
+                const response = await axios.post('/aidiagnosis', {
+                    prompt: this.symptomDescription
+                });
+                
+                // 处理API响应
+                this.aiDiagnosis = {
+                    possibleDiseases: response.data.possibleDiseases || [],
+                    suggestions: response.data.suggestions || [],
+                    urgencyLevel: response.data.urgencyLevel || '低',
+                    urgencyNote: response.data.urgencyNote || ''
+                };
+                
+                // 根据诊断结果推荐医生
                 this.recommendDoctors();
                 this.showResults = true;
+                
+            } catch (error) {
+                console.error('API调用失败:', error);
+                ElMessage.error('获取诊断结果失败，请稍后重试');
+            } finally {
                 this.isLoading = false;
-            }, 1500);
+            }
         },
         
         generateAIDiagnosis() {
