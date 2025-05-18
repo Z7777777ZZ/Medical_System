@@ -11,43 +11,40 @@
     </el-card>
 
     <el-steps :active="step" finish-status="success" align-center style="margin:32px 0;">
-      <el-step title="注册/登录" description="创建账号，安全登录平台" />
-      <el-step title="完善信息" description="补充个人资料，提升服务体验" />
-      <el-step title="健康日报" description="每日填写健康信息，关注身体状况" />
-      <el-step title="消息推送" description="及时接收系统通知和健康提醒" />
-      <el-step title="意见反馈" description="提交建议，帮助平台优化升级" />
+      <el-step v-for="(item, idx) in steps" :key="item.title" :title="item.title" :description="item.description" @click="showGuide(idx)" style="cursor:pointer;" />
     </el-steps>
 
-    <el-row :gutter="24" class="guide-cards">
-      <el-col :xs="24" :sm="12" :md="8">
-        <el-card shadow="hover" class="feature-card">
-          <el-icon class="feature-icon" style="color:#67C23A"><i class="el-icon-User"></i></el-icon>
-          <h3>个人中心</h3>
-          <p>管理个人信息、查看健康档案、修改密码等。</p>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="12" :md="8">
-        <el-card shadow="hover" class="feature-card">
-          <el-icon class="feature-icon" style="color:#E6A23C"><i class="el-icon-Calendar"></i></el-icon>
-          <h3>健康日报</h3>
-          <p>每日打卡健康状况，系统智能分析健康趋势。</p>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="12" :md="8">
-        <el-card shadow="hover" class="feature-card">
-          <el-icon class="feature-icon" style="color:#409EFF"><i class="el-icon-Bell"></i></el-icon>
-          <h3>消息推送</h3>
-          <p>第一时间获取系统公告、健康提醒和服务通知。</p>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="12" :md="8">
-        <el-card shadow="hover" class="feature-card">
-          <el-icon class="feature-icon" style="color:#F56C6C"><i class="el-icon-Edit"></i></el-icon>
-          <h3>意见反馈</h3>
-          <p>随时提交建议和问题，平台持续优化服务。</p>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div v-if="currentGuide" class="guide-detail-area">
+      <el-card shadow="never" style="margin-bottom: 24px;">
+        <h3 style="color:#409EFF;margin-bottom:8px;">{{ currentGuide.title }}</h3>
+        <p style="font-size:16px;line-height:1.8;">{{ currentGuide.detail }}</p>
+        <div v-if="step === 1" class="guide-extra">
+          <el-alert title="建议使用常用手机号或邮箱注册，便于找回密码。" type="info" show-icon style="margin-bottom:12px;" />
+          <el-tag type="success">支持第三方登录</el-tag>
+          <p style="margin-top:10px;color:#888;">注册后可享受平台全部功能，信息安全有保障。</p>
+        </div>
+        <div v-else-if="step === 2" class="guide-extra">
+          <el-alert title="完善资料可获得更精准的健康建议。" type="success" show-icon style="margin-bottom:12px;" />
+          <el-tag>个人信息仅自己可见</el-tag>
+          <p style="margin-top:10px;color:#888;">请如实填写健康档案，方便医生为您提供服务。</p>
+        </div>
+        <div v-else-if="step === 3" class="guide-extra">
+          <el-alert title="每日健康打卡，关注身体变化。" type="warning" show-icon style="margin-bottom:12px;" />
+          <el-tag type="info">可设置健康提醒</el-tag>
+          <p style="margin-top:10px;color:#888;">健康日报数据将用于生成健康趋势图。</p>
+        </div>
+        <div v-else-if="step === 4" class="guide-extra">
+          <el-alert title="开启推送，重要消息不错过。" type="info" show-icon style="margin-bottom:12px;" />
+          <el-tag type="danger">支持多种推送方式</el-tag>
+          <p style="margin-top:10px;color:#888;">可在“消息推送”页面自定义推送设置。</p>
+        </div>
+        <div v-else-if="step === 5" class="guide-extra">
+          <el-alert title="您的建议是我们前进的动力！" type="success" show-icon style="margin-bottom:12px;" />
+          <el-tag type="primary">反馈可匿名提交</el-tag>
+          <p style="margin-top:10px;color:#888;">遇到问题或有建议，欢迎随时反馈，我们会及时处理。</p>
+        </div>
+      </el-card>
+    </div>
 
     <el-alert
       title="温馨提示：如有疑问可随时点击右下角客服按钮咨询！"
@@ -63,7 +60,44 @@ export default {
   name: 'GuideTour',
   data() {
     return {
-      step: 1
+      step: 1,
+      steps: [
+        {
+          title: '注册/登录',
+          description: '创建账号，安全登录平台',
+          detail: '点击右上角“注册/登录”按钮，输入手机号或邮箱，设置密码即可完成注册。已有账号可直接登录。'
+        },
+        {
+          title: '完善信息',
+          description: '补充个人资料，提升服务体验',
+          detail: '进入个人中心，补充姓名、性别、年龄等信息，完善健康档案，享受个性化服务。'
+        },
+        {
+          title: '健康日报',
+          description: '每日填写健康信息，关注身体状况',
+          detail: '在“健康日报”页面，每日打卡体温、症状等健康信息，系统将智能分析健康趋势。'
+        },
+        {
+          title: '消息推送',
+          description: '及时接收系统通知和健康提醒',
+          detail: '开启消息推送后，您将第一时间收到系统公告、健康提醒和服务通知。'
+        },
+        {
+          title: '意见反馈',
+          description: '提交建议，帮助平台优化升级',
+          detail: '如有建议或遇到问题，可在“意见反馈”页面提交，平台会及时处理并持续优化服务。'
+        }
+      ],
+      currentGuide: null
+    }
+  },
+  created() {
+  this.currentGuide = this.steps[0]
+  },
+  methods: {
+    showGuide(idx) {
+      this.currentGuide = this.steps[idx]
+      this.step = idx + 1
     }
   }
 }
@@ -91,27 +125,23 @@ export default {
   font-size: 15px;
   margin-top: 4px;
 }
-.guide-cards {
+.guide-detail-area {
   margin-top: 16px;
 }
-.feature-card {
-  margin-bottom: 24px;
+.el-card {
   border-radius: 14px;
-  text-align: center;
-  transition: box-shadow 0.2s;
-  min-height: 180px;
 }
-.feature-icon {
-  font-size: 32px;
-  margin-bottom: 12px;
-}
-.feature-card h3 {
-  margin: 8px 0 6px;
-  font-size: 20px;
+.el-card h3 {
+  margin: 0;
+  font-size: 18px;
   color: #303133;
 }
-.feature-card p {
+.el-card p {
   color: #606266;
-  font-size: 15px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.guide-extra {
+  margin-top: 16px;
 }
 </style>
