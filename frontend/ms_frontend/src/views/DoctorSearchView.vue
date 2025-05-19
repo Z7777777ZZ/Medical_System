@@ -6,7 +6,7 @@
         <!-- 查询框 -->
         <div style="width:100%; margin-left: 50px; padding-top:5vh;">
 
-            <el-input v-model="toSearch" :prefix-icon="Search" style="display:inline; " placeholder="输入查询关键字（医生姓名、科室、医院或专长）" @keyup.enter="searchDoctors"></el-input>
+            <el-input v-model="toSearch" :prefix-icon="Search" style="display:inline; " placeholder="输入姓名、科室、医院等" @keyup.enter="searchDoctors"></el-input>
             <el-button style="margin-left: 10px;" type="primary" @click="searchDoctors" :loading="loading">查询</el-button>
 
             <!-- <el-select v-model="queryCond.sortBy" size="middle" style="width: 12.5vw; margin-left: 30px;">
@@ -66,6 +66,8 @@
 
 <script>
 import { Search } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import axios from 'axios'
 export default {
     name: 'doctor-search',
 //   components: {
@@ -76,46 +78,46 @@ export default {
             toSearch: '',
             Search,
             doctors: [
-                // {
-                //     name: '张医生',
-                //     phone: '13800138000',
-                //     hospital: '北京协和医院',
-                //     department: '心血管内科',
-                //     specialty: '冠心病、高血压',
-                //     bio: '从事心血管疾病诊疗20年，经验丰富'
-                // },
-                // {
-                //     name: '李医生',
-                //     phone: '13900139000',
-                //     hospital: '上海瑞金医院',
-                //     department: '神经外科',
-                //     specialty: '脑肿瘤、脑血管病',
-                //     bio: '神经外科主任医师，擅长微创手术'
-                // },
-                // {
-                //     name: '王医生',
-                //     phone: '13700137000',
-                //     hospital: '广州中山医院',
-                //     department: '儿科',
-                //     specialty: '儿童呼吸系统疾病',
-                //     bio: '儿科副主任医师，对儿童常见病有深入研究'
-                // },
-                // {
-                //     name: '赵医生',
-                //     phone: '13600136000',
-                //     hospital: '成都华西医院',
-                //     department: '骨科',
-                //     specialty: '关节置换、脊柱手术',
-                //     bio: '骨科主任医师，手术技术精湛'
-                // },
-                // {
-                //     name: '刘医生',
-                //     phone: '13500135000',
-                //     hospital: '武汉同济医院',
-                //     department: '眼科',
-                //     specialty: '白内障、青光眼',
-                //     bio: '眼科专家，已完成数千例眼科手术'
-                // },
+                {
+                    name: '张三',
+                    phone: '13800138000',
+                    hospital: '北京协和医院',
+                    department: '心血管内科',
+                    specialty: '冠心病、高血压',
+                    bio: '从事心血管疾病诊疗20年，经验丰富'
+                },
+                {
+                    name: '李四',
+                    phone: '13900139000',
+                    hospital: '上海瑞金医院',
+                    department: '神经外科',
+                    specialty: '脑肿瘤、脑血管病',
+                    bio: '神经外科主任医师，擅长微创手术'
+                },
+                {
+                    name: '王五',
+                    phone: '13700137000',
+                    hospital: '广州中山医院',
+                    department: '儿科',
+                    specialty: '儿童呼吸系统疾病',
+                    bio: '儿科副主任医师，对儿童常见病有深入研究'
+                },
+                {
+                    name: '赵云',
+                    phone: '13600136000',
+                    hospital: '成都华西医院',
+                    department: '骨科',
+                    specialty: '关节置换、脊柱手术',
+                    bio: '骨科主任医师，手术技术精湛'
+                },
+                {
+                    name: '刘备',
+                    phone: '13500135000',
+                    hospital: '武汉同济医院',
+                    department: '眼科',
+                    specialty: '白内障、青光眼',
+                    bio: '眼科专家，已完成数千例眼科手术'
+                },
                 {
                     name: '张伟',
                     phone: '13800001111',
@@ -173,31 +175,59 @@ export default {
                     bio: '高级眼科医师，擅长各类眼科疾病诊疗'
                 },
             ],
-            filteredCards: []
+            filteredCards: [],
+            loading: false,
         }
     },
     created() {
-        // 初始化时显示所有医生
-        this.filteredCards = [...this.doctors];
+        // 初始化时加载所有医生
+        // this.filteredCards = [...this.doctors];
+        this.searchDoctors();
     },
     methods: {
-        searchDoctors() {
-            if (!this.toSearch.trim()) {
-                // 如果搜索框为空，显示所有医生
-                this.filteredCards = [...this.doctors];
-                return;
-            }
+        async searchDoctors() {
+            // 前端模拟数据
+            // if (!this.toSearch.trim()) {
+            //     // 如果搜索框为空，显示所有医生
+            //     this.filteredCards = [...this.doctors];
+            //     return;
+            // }
             
-            // 过滤医生数据，匹配姓名、医院、科室或专长
-            this.filteredCards = this.doctors.filter(doctor => {
-                const searchTerm = this.toSearch.toLowerCase();
-                return (
-                    doctor.name.toLowerCase().includes(searchTerm) ||
-                    doctor.hospital.toLowerCase().includes(searchTerm) ||
-                    doctor.department.toLowerCase().includes(searchTerm) ||
-                    doctor.specialty.toLowerCase().includes(searchTerm)
-                );
-            });
+            // // 过滤医生数据，匹配姓名、医院、科室或专长
+            // this.filteredCards = this.doctors.filter(doctor => {
+            //     const searchTerm = this.toSearch.toLowerCase();
+            //     return (
+            //         doctor.name.toLowerCase().includes(searchTerm) ||
+            //         doctor.hospital.toLowerCase().includes(searchTerm) ||
+            //         doctor.department.toLowerCase().includes(searchTerm) ||
+            //         doctor.specialty.toLowerCase().includes(searchTerm)
+            //     );
+            // });
+
+            // if (this.filteredCards.length === 0) {
+            //     ElMessage.warning('没有找到匹配的医生');
+            // }
+
+            // 前后端集成
+            this.loading = true;
+            try {
+                const response = await axios.get('/doctors/search',{
+                    params: {
+                        query: this.toSearch,
+                    }
+                });
+
+                this.filteredCards = response.data;
+
+                if (this.filteredCards.length === 0) {
+                    ElMessage.warning('没有找到匹配的医生');
+                }
+            } catch (error) {
+                console.error('搜索医生失败：', error);
+                ElMessage.error('搜索医生失败，请稍后再试');
+            } finally {
+                this.loading = false;
+            }
         },
     },
 }

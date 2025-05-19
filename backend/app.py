@@ -1,15 +1,21 @@
 from flask import Flask
-from flask import request, jsonify, render_template
-from flask_cors import CORS  # 如果需要跨域支持
+from flask import request, jsonify
+from flask_cors import CORS  # 跨域支持
 # from aidg.api.doctor_find import doctor_find_bp
 from aidg.services.ai_service import DeepSeekService
 from config import Config
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
 app.config.from_object(Config)
 
 CORS(app)  # 允许跨域请求
+
+# 数据库配置
+app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+pymysql://root:123456@localhost:3306/medical_system"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
 # def create_app():
 #     app = Flask(__name__)
@@ -32,8 +38,77 @@ def home():
     """首页"""
     return "Hello, Flask!"
 
+# 医生模型 SQLAlchemy 默认使用 ​​类名的小写蛇形命名（snake_case）​​ 作为表名
+class Doctor(db.Model):
+    __tablename__ = 'doctors' # 显式指定该模型对应的数据库表名为 doctors
+    doctor_id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    phone = db.Column(db.String(20), nullable=False)
+    name = db.Column(db.String(50), nullable=False)
+    hospital_id = db.Column(db.BigInteger, db.ForeignKey('hospitals.hospital_id'), nullable=False)
+    department_id = db.Column(db.BigInteger, db.ForeignKey('departments.department_id'), nullable=False)
+    specialty = db.Column(db.String(100), nullable=False)
+    bio = db.Column(db.Text)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+    # 定义关系
+    hospital = db.relationship('Hospital', backref='doctors')
+    department = db.relationship('Department', backref='doctors')
+
+    def to_dict(self):
+        return {
+            # 'doctor_id': self.doctor_id,
+            'phone': self.phone,
+            'name': self.name,
+            # 'hospital_id': self.hospital_id,
+            'hospital': self.hospital.name if self.hospital else None,
+            # 'department_id': self.department_id,
+            'department': self.department.name if self.department else None,
+            'specialty': self.specialty,
+            'bio': self.bio,
+            # 'password_hash': self.password_hash,
+            # 'created_at': self.created_at
+        }
+    
+# 医院模型
+class Hospital(db.Model):
+    __tablename__ = 'hospitals'
+    hospital_id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(100), nullable=False)
+    address = db.Column(db.String(255), nullable=False)
+
+# 科室模型
+class Department(db.Model):
+    __tablename__ = 'departments'
+    department_id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(50), nullable=False)
+    hospital_id = db.Column(db.BigInteger, db.ForeignKey('hospitals.hospital_id'), nullable=False)
+
+@app.route('/api/doctors/search', methods=['GET'])
+def search_doctors():
+    search_term = request.args.get('query', '').strip().lower()
+
+    if not search_term:
+        doctors = Doctor.query.all()
+        return jsonify([doctor.to_dict() for doctor in doctors])
+        # return jsonify({"error": "查询参数不能为空"}), 400
+    
+    query = Doctor.query.join(Hospital).join(Department)
+
+    query = query.filter(
+        db.or_(
+            Doctor.name.ilike(f'%{search_term}%'),
+            Hospital.name.ilike(f'%{search_term}%'),
+            Department.name.ilike(f'%{search_term}%'),
+            Doctor.specialty.ilike(f'%{search_term}%')
+        )
+    )
+
+    doctors = query.all()
+    return jsonify([doctor.to_dict() for doctor in doctors])
+
 @app.route('/api/aidiagnosis', methods=['POST'])
-def chat():
+def ai_diagnosis():
     """处理聊天请求的API端点"""
     data = request.get_json()
     prompt = data.get('prompt', '')
@@ -43,8 +118,9 @@ def chat():
     
     try:
         # 调用DeepSeek服务 - 现在直接返回字符串响应
-        prompt += "回答要求如下：首先给出可能疾病（疾病之间用“、”分隔），然后给出建议（建议分点列出），最后直接给出紧急程度（低、中、高）及其备注，三项内容之间用---分割。"
+        prompt += "回答要求如下：首先给出可能疾病（以“可能疾病”开头，疾病之间用“、”分隔），然后给出建议（建议分点列出），最后直接给出紧急程度（以“紧急程度”开头，紧急程度分为低、中、高）及其备注，三项内容之间用---分割。"
         raw_response = DeepSeekService.generate_response(prompt)
+        print(raw_response)
 
         # 初始化结构化结果
         structured_response = {
@@ -98,6 +174,8 @@ def chat():
                 urgency_note = urgency_section.split('备注：')[-1].strip()
                 structured_response["urgencyNote"] = urgency_note.replace('**', '').replace('(', '').replace(')', '').strip()
         
+        print(structured_response)
+
         return jsonify(structured_response)
         
     except Exception as e:
