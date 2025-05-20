@@ -1,19 +1,11 @@
 import { defineStore } from 'pinia'
-
+const BASE_API_URL = 'http://127.0.0.1:5000'
 export const useQueueStore = defineStore('queue', {
   state: () => ({
     // 普通患者等待队列
-    normalQueue: [
-      { id: 101, name: '张三', age: 45, gender: '男', symptom: '头痛、发热', waitingTime: 30 },
-      { id: 102, name: '李四', age: 28, gender: '女', symptom: '咳嗽、喉咙疼', waitingTime: 25 },
-      { id: 103, name: '王五', age: 62, gender: '男', symptom: '腹痛、恶心', waitingTime: 15 },
-      { id: 104, name: '赵六', age: 35, gender: '女', symptom: '过敏、皮疹', waitingTime: 10 }
-    ],
+    normalQueue: [],
     // 检查后优先队列
-    priorityQueue: [
-      { id: 201, name: '陈七', age: 72, gender: '男', symptom: '心悸、胸闷', waitingTime: 40, examResult: 'ECG显示轻度心率不齐' },
-      { id: 202, name: '刘八', age: 8, gender: '男', symptom: '发热、全身酸痛', waitingTime: 35, examResult: '血检显示白细胞升高' }
-    ],
+    priorityQueue: [],
     // 当前接诊的患者
     currentPatient: null,
     // 加载状态
@@ -42,53 +34,89 @@ export const useQueueStore = defineStore('queue', {
   
   actions: {
     // 初始化数据 - 用于组件挂载时调用
-    initData() {
+    async initData() {
+      await this.fetchQueueData()
+      await this.fetchCurrentPatient()
       console.log('队列数据已初始化')
     },
     
     // 获取队列数据
     async fetchQueueData() {
-      // 模拟加载过程
       this.loading = true
-      setTimeout(() => {
+      try {
+        const response = await fetch(`${BASE_API_URL}/api/call-number/queue/list`)
+        const queueData0 = await response.json()
+        // console.log('获取队列数据0:', queueData0)
+        const queueData = queueData0.filter(p => p.status === 'waiting')
+
+        // console.log('获取队列数据:', queueData)
+
+        this.normalQueue = queueData.filter(p => !p.isPriority)
+        this.priorityQueue = queueData.filter(p => p.isPriority)
+      } catch (error) {
+        this.error = error.message
+      } finally {
         this.loading = false
-      }, 500)
+      }
     },
     
     // 医生叫号接诊
-    async callNextPatient() {
+    async callNextPatient(doctorId) {
       if (!this.nextPatient) {
         return null
       }
       
       this.loading = true
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
       let patient = null
       
-      // 从优先队列或普通队列中取出第一个患者
-      if (this.priorityQueue.length > 0) {
-        patient = { ...this.priorityQueue[0] }
-        this.priorityQueue = this.priorityQueue.slice(1)
-      } else if (this.normalQueue.length > 0) {
-        patient = { ...this.normalQueue[0] }
-        this.normalQueue = this.normalQueue.slice(1)
+      try {
+        // 调用叫号API
+        console.log('开始叫号...')
+        const response = await fetch(`${BASE_API_URL}/api/call-number/queue/call`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            doctorId: doctorId,
+          })
+        })
+        
+        if (!response.ok) {
+          throw new Error('叫号失败')
+        }
+        
+        // 获取API返回的下一个患者
+        patient = await response.json()
+        
+        // 将该患者设为当前患者
+        if (patient) {
+          this.currentPatient = patient
+          
+          // 更新队列数据，从队列中移除该患者
+          await this.fetchQueueData() // 重新获取最新的队列数据
+        }
+      } catch (error) {
+        console.error('叫号失败:', error)
+        this.error = error.message
+      } finally {
+        this.loading = false
       }
-      
-      if (patient) {
-        this.currentPatient = patient
-      }
-      
-      this.loading = false
       return patient
+    },
+
+    async fetchCurrentPatient() {
+      try {
+        const response = await fetch(`${BASE_API_URL}/api/call-number/queue/current`)
+        this.currentPatient = await response.json()
+      } catch (error) {
+        this.error = error.message
+      }
     },
     
     // 患者检查完毕，重新加入队列
     async returnToQueueAfterExam(patient) {
       this.loading = true
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 500))
       
       if (patient) {
         // 添加检查结果
@@ -108,9 +136,6 @@ export const useQueueStore = defineStore('queue', {
     // 结束当前患者诊断
     async finishDiagnosis() {
       this.loading = true
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
       // 清空当前患者
       this.currentPatient = null
       

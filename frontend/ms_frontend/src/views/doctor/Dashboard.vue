@@ -191,9 +191,10 @@ export default {
     const prescriptionStore = usePrescriptionStore()
     /* eslint-enable no-unused-vars */
     
-    // 医生信息（模拟数据，实际应从用户会话或Store中获取）
+    // 医生信息 
+    // TODO 等待第一组的医生信息调用写好
     const doctorInfo = reactive({
-      id: 'doctor123',
+      id: '1',
       staffId: 'D00123',
       name: '李医生',
       department: '内科',
@@ -202,6 +203,7 @@ export default {
     })
     
     // 统计数据
+    // TODO 这里我没找到 API
     const stats = reactive({
       todayPatients: 12,
       waitingPatients: 5,
@@ -215,6 +217,7 @@ export default {
     })
     
     // 通知列表
+    // TODO 不知道是哪一组的 api 调用，反正不是第三组的
     const notifications = ref([
       {
         id: 1,
@@ -233,6 +236,7 @@ export default {
     ])
     
     // 最近患者
+    // TODO 这里我没找到 API，感觉是这些信息都是第一组的活（
     const recentPatients = ref([
       {
         id: 'visit001',
@@ -269,12 +273,14 @@ export default {
     ])
     
     // 刷新通知
+    // TODO 获取 notifications 的值
     const refreshNotifications = () => {
       // 实际项目中应该调用API获取最新通知
       ElMessage.success('通知已更新')
     }
     
     // 标记通知已读/未读
+    // TODO 需要别的组的 API
     const markAsRead = (notification) => {
       notification.read = !notification.read
       // 实际项目中应该调用API更新通知状态
@@ -365,6 +371,7 @@ export default {
     // 初始化
     onMounted(() => {
       // 实际项目中，应该从API获取数据
+      // 这里的信息和我们组都没啥关系
     })
     
     return {

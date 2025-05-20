@@ -213,7 +213,7 @@ export default {
       {
         id: 'RX20250422001',
         patientId: 'patient123',
-        doctorId: 'doctor123',
+        doctorId: '1',
         doctorName: '李医生',
         department: '内科',
         date: '2025-04-20T09:30:00',

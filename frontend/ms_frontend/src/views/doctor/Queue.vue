@@ -198,6 +198,7 @@ export default {
     
     // 刷新队列
     const refreshQueue = async () => {
+      console.log('Refreshing queue data...')
       await queueStore.fetchQueueData()
     }
     
@@ -207,8 +208,8 @@ export default {
         ElMessage.warning('当前没有等待的患者')
         return
       }
-      
-      await queueStore.callNextPatient('doctor123') // 这里应当从登录用户信息中获取医生ID
+      console.log('正在叫号...')
+      await queueStore.callNextPatient('1') // 这里应当从登录用户信息中获取医生ID
     }
     
     // 叫特定患者
@@ -216,7 +217,7 @@ export default {
       // TODO: 实现叫特定患者的接口
       ElMessage.info(`叫号患者: ${patient.name}`)
       // 暂时使用通用叫号
-      await queueStore.callNextPatient('doctor123')
+      await queueStore.callNextPatient('1')
     }
     
     // 格式化等待时间
@@ -244,7 +245,7 @@ export default {
       
       prescriptionStore.createNewPrescription(
         currentPatient.value.id,
-        'doctor123' // 这里应当从登录用户信息中获取医生ID
+        '1' // TODO 这里应当从登录用户信息中获取医生ID
       )
       prescriptionDialogVisible.value = true
     }

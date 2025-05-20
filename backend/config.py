@@ -6,7 +6,7 @@ load_dotenv()
 
 class Config:
     # 数据库配置
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'mysql+pymysql://root:120110119a@localhost/medical_system'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'mysql+pymysql://root@localhost/medical_system'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # JWT配置

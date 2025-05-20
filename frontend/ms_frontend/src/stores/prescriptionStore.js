@@ -1,44 +1,7 @@
 import { defineStore } from 'pinia'
-// 移除 axios 导入
-// import axios from 'axios'
+import axios from 'axios'
 
-// 静态药物数据
-const staticMedicines = [
-  { id: 1, name: '阿莫西林胶囊', specification: '0.25g*24粒', price: 24.5, stock: 100 },
-  { id: 2, name: '布洛芬缓释胶囊', specification: '0.3g*10粒', price: 16.8, stock: 150 },
-  { id: 3, name: '头孢克肟胶囊', specification: '100mg*6片', price: 38.5, stock: 80 },
-  { id: 4, name: '感冒灵颗粒', specification: '10g*9袋', price: 12.5, stock: 200 },
-  { id: 5, name: '维生素C片', specification: '100mg*60片', price: 8.5, stock: 300 }
-]
-
-// 静态处方数据
-const staticPrescriptions = [
-  {
-    id: 1,
-    patientId: 101,
-    doctorId: 201,
-    date: '2025-04-20T08:30:00',
-    medicines: [
-      { id: 1, name: '阿莫西林胶囊', specification: '0.25g*24粒', price: 24.5, quantity: 2, usage: '一日三次，饭后服用' },
-      { id: 4, name: '感冒灵颗粒', specification: '10g*9袋', price: 12.5, quantity: 1, usage: '一日三次，温水冲服' }
-    ],
-    instructions: '多喝水，注意休息',
-    status: 'completed'
-  },
-  {
-    id: 2,
-    patientId: 102,
-    doctorId: 201,
-    date: '2025-04-21T10:15:00',
-    medicines: [
-      { id: 2, name: '布洛芬缓释胶囊', specification: '0.3g*10粒', price: 16.8, quantity: 1, usage: '发热时服用，一次一粒，间隔6小时' },
-      { id: 5, name: '维生素C片', specification: '100mg*60片', price: 8.5, quantity: 1, usage: '一日一次，饭后服用' }
-    ],
-    instructions: '避免剧烈运动，多休息',
-    status: 'completed'
-  }
-]
-
+const BASE_API_URL = 'http://127.0.0.1:5000'
 export const usePrescriptionStore = defineStore('prescription', {
   state: () => ({
     // 当前正在编辑的处方
@@ -64,11 +27,13 @@ export const usePrescriptionStore = defineStore('prescription', {
     async fetchAvailableMedicines() {
       try {
         this.loading = true
-        // 使用静态数据替代 API 调用
-        setTimeout(() => {
-          this.availableMedicines = staticMedicines
-          this.loading = false
-        }, 300) // 添加小延迟模拟网络请求
+        this.error = null
+        
+        // 调用实际 API 获取药物列表
+        const response = await axios.get(`${BASE_API_URL}/api/diagnosis/prescription/medicines`)
+        this.availableMedicines = response.data || []
+        
+        this.loading = false
       } catch (error) {
         this.error = '获取药物列表失败'
         this.loading = false
@@ -143,25 +108,40 @@ export const usePrescriptionStore = defineStore('prescription', {
     
     // 保存处方
     async savePrescription() {
-      if (!this.currentPrescription) return
+      if (!this.currentPrescription) return null
       
       try {
         this.loading = true
-        // 使用静态数据模拟 API 响应
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            const savedPrescription = {
+        this.error = null
+        
+        // 判断是创建新处方还是更新已有处方
+        let response
+        if (this.currentPrescription.id) {
+          // 更新已有处方
+          response = await axios.put(
+            `${BASE_API_URL}/api/diagnosis/prescription/${this.currentPrescription.id}`, 
+            {
               ...this.currentPrescription,
-              id: Math.floor(Math.random() * 1000) + 10, // 随机生成 ID
               status: 'completed'
             }
-            // 添加到静态处方列表中
-            staticPrescriptions.push(savedPrescription)
-            this.currentPrescription = savedPrescription
-            this.loading = false
-            resolve(savedPrescription)
-          }, 500)
-        })
+          )
+        } else {
+          // 创建新处方
+          response = await axios.post(
+            `${BASE_API_URL}/api/diagnosis/prescription`, 
+            {
+              ...this.currentPrescription,
+              status: 'completed'
+            }
+          )
+        }
+        
+        if (response.data) {
+          this.currentPrescription = response.data
+        }
+        
+        this.loading = false
+        return response.data
       } catch (error) {
         this.error = '保存处方失败'
         this.loading = false
@@ -174,14 +154,14 @@ export const usePrescriptionStore = defineStore('prescription', {
     async fetchPatientPrescriptions(patientId) {
       try {
         this.loading = true
-        // 使用静态数据模拟 API 响应
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            this.patientPrescriptions = staticPrescriptions.filter(p => p.patientId === patientId)
-            this.loading = false
-            resolve(this.patientPrescriptions)
-          }, 300)
-        })
+        this.error = null
+        
+        // 调用实际 API 获取患者处方列表
+        const response = await axios.get(`${BASE_API_URL}/api/diagnosis/prescription?patientId=${patientId}`)
+        this.patientPrescriptions = response.data || []
+        
+        this.loading = false
+        return this.patientPrescriptions
       } catch (error) {
         this.error = '获取处方列表失败'
         this.loading = false
@@ -194,15 +174,19 @@ export const usePrescriptionStore = defineStore('prescription', {
     async fetchPrescription(prescriptionId) {
       try {
         this.loading = true
-        // 使用静态数据模拟 API 响应
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            const prescription = staticPrescriptions.find(p => p.id === prescriptionId)
-            this.currentPrescription = prescription || null
-            this.loading = false
-            resolve(prescription)
-          }, 300)
-        })
+        this.error = null
+        
+        // 调用实际 API 获取处方详情
+        const response = await axios.get(`${BASE_API_URL}/api/diagnosis/prescription/${prescriptionId}`)
+        
+        if (response.data) {
+          this.currentPrescription = response.data
+        } else {
+          this.currentPrescription = null
+        }
+        
+        this.loading = false
+        return this.currentPrescription
       } catch (error) {
         this.error = '获取处方详情失败'
         this.loading = false

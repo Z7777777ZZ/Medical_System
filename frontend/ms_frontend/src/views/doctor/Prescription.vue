@@ -73,7 +73,7 @@
                 </template>
               </el-table-column>
               <el-table-column prop="patientName" label="患者姓名" width="120" />
-              <el-table-column prop="diagnosis" label="诊断" show-overflow-tooltip />
+              <!-- <el-table-column prop="diagnosis" label="诊断" show-overflow-tooltip /> -->
               <el-table-column label="药品数量" width="80">
                 <template #default="scope">
                   {{ scope.row.medicines.length }}
@@ -184,9 +184,9 @@
                 <div class="info-item"><span class="label">性别:</span> {{ currentPrescription.patientGender === 'male' ? '男' : '女' }}</div>
                 <div class="info-item"><span class="label">年龄:</span> {{ currentPrescription.patientAge }}岁</div>
               </div>
-              <div class="info-row">
+              <!-- <div class="info-row">
                 <div class="info-item"><span class="label">诊断:</span> {{ currentPrescription.diagnosis }}</div>
-              </div>
+              </div> -->
             </div>
             
             <el-divider />
@@ -241,6 +241,7 @@ import { usePrescriptionStore } from '../../stores/prescriptionStore'
 import PrescriptionForm from '../../components/doctor/PrescriptionForm.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+const BASE_API_URL = 'http://127.0.0.1:5000'
 export default {
   name: 'DoctorPrescription',
   components: {
@@ -256,70 +257,59 @@ export default {
     
     // 状态
     const loading = ref(false)
+    // TODO 不能获取的数据我都没有清空，具体需要患者信息的调用和医生信息的调用
     const prescriptions = ref([
       {
-        id: 'RX20250422001',
-        patientId: 'patient123',
+        id: '',
+        patientId: '',
         patientName: '张三',
         patientGender: 'male',
         patientAge: 35,
-        doctorId: 'doctor123',
+        doctorId: '',
         doctorName: '李医生',
         doctorLicenseNumber: 'MD12345678',
         department: '内科',
-        date: '2025-04-22T09:30:00',
-        diagnosis: '上呼吸道感染',
-        status: 'completed',
-        medicines: [
-          { id: 1, name: '阿莫西林胶囊', specification: '0.25g*24粒/盒', quantity: 2, usage: '一日三次，饭后半小时服用，一次一粒', type: '抗生素类', manufacturer: '哈药集团' },
-          { id: 3, name: '感冒灵颗粒', specification: '10g*9包/盒', quantity: 1, usage: '一日三次，温开水冲服，一次一包', type: '感冒用药', manufacturer: '云南白药集团' }
-        ],
-        instructions: '注意休息，多喝温水，避免辛辣食物'
-      },
-      {
-        id: 'RX20250421001',
-        patientId: 'patient456',
-        patientName: '李四',
-        patientGender: 'female',
-        patientAge: 28,
-        doctorId: 'doctor123',
-        doctorName: '李医生',
-        doctorLicenseNumber: 'MD12345678',
-        department: '内科',
-        date: '2025-04-21T14:15:00',
-        diagnosis: '慢性胃炎',
-        status: 'completed',
-        medicines: [
-          { id: 5, name: '奥美拉唑肠溶胶囊', specification: '20mg*14粒/盒', quantity: 1, usage: '一日一次，早餐前30分钟服用，一次一粒', type: '消化系统药物', manufacturer: '阿斯利康' },
-          { id: 8, name: '铝碳酸镁咀嚼片', specification: '0.5g*20片/盒', quantity: 1, usage: '一日三次，饭后服用，一次一片', type: '消化系统药物', manufacturer: '拜耳医药' }
-        ],
-        instructions: '避免辛辣刺激性食物，戒烟酒，少吃多餐'
-      },
-      {
-        id: 'RX20250420002',
-        patientId: 'patient789',
-        patientName: '王五',
-        patientGender: 'male',
-        patientAge: 42,
-        doctorId: 'doctor123',
-        doctorName: '李医生',
-        doctorLicenseNumber: 'MD12345678',
-        department: '内科',
-        date: '2025-04-20T16:30:00',
-        diagnosis: '高血压',
-        status: 'draft',
-        medicines: [
-          { id: 10, name: '厄贝沙坦片', specification: '150mg*14片/盒', quantity: 2, usage: '一日一次，每日早晨服用，一次一片', type: '心血管系统用药', manufacturer: '赛诺菲' }
-        ],
-        instructions: '低盐饮食，适量运动，避免情绪波动，定期监测血压'
+        date: '',
+        // diagnosis: '',
+        status: '',
+        medicines: [  ],
+        instructions: ''
       }
     ])
+
+    // 获取医生的处方列表
+    const fetchDoctorPrescriptions = async (doctorId) => {
+      loading.value = true
+      try {
+        const response = await fetch(`${BASE_API_URL}/api/diagnosis/prescription?doctorId=${doctorId}`);
+        const data = await response.json();
+        prescriptions.value = data || [];
+        // iter all patientId and dockerId to get details
+        // prescriptions.value.forEach(prescription => {
+          // TODO
+          // get petient details and docker details by id from api
+          // just like follow
+          // fetch(`/diagnosis/patient/${prescription.patientId}`)
+          //   .then(response => response.json())
+          //   .then(patientData => {
+          //     prescription.patientName = patientData.name
+          //     prescription.patientGender = patientData
+        // })
+        // console.log('处方列表:', prescriptions.value);
+      } catch (error) {
+        console.error('获取处方列表失败:', error);
+        ElMessage.error('获取处方列表失败');
+      } finally {
+        loading.value = false;
+      }
+    };
+
     const currentPrescription = ref({
       patientId: '',
       patientName: '',
       patientGender: '',
       patientAge: '',
-      diagnosis: '',
+      // diagnosis: '',
       medicines: [],
       instructions: ''
     })
@@ -341,8 +331,8 @@ export default {
         const query = searchQuery.value.toLowerCase()
         result = result.filter(p => 
           p.id.toLowerCase().includes(query) || 
-          p.patientName.toLowerCase().includes(query) ||
-          p.diagnosis.toLowerCase().includes(query)
+          p.patientName.toLowerCase().includes(query)
+          // p.diagnosis.toLowerCase().includes(query)
         )
       }
       
@@ -391,8 +381,8 @@ export default {
         const query = searchQuery.value.toLowerCase()
         result = result.filter(p => 
           p.id.toLowerCase().includes(query) || 
-          p.patientName.toLowerCase().includes(query) ||
-          p.diagnosis.toLowerCase().includes(query)
+          p.patientName.toLowerCase().includes(query)
+          // p.diagnosis.toLowerCase().includes(query)
         )
       }
       
@@ -502,10 +492,10 @@ export default {
         patientName: '',
         patientGender: '',
         patientAge: '',
-        diagnosis: '',
+        // diagnosis: '',
         medicines: [],
         instructions: '',
-        doctorId: 'doctor123',
+        doctorId: '1',
         doctorName: '李医生',
         doctorLicenseNumber: 'MD12345678',
         department: '内科',
@@ -513,9 +503,8 @@ export default {
         status: 'draft'
       }
       
-      // 如果路由中包含患者信息，则自动填充
       if (route.query.patientId) {
-        // 实际项目中应该通过API获取患者信息
+        // TODO 实际项目中应该通过API获取患者信息
         const patientInfo = {
           id: route.query.patientId,
           name: '张三',
@@ -556,59 +545,190 @@ export default {
     }
     
     // 作废处方
-    const cancelPrescription = (prescription) => {
-      // 实际项目中应该调用API更新处方状态
-      const index = prescriptions.value.findIndex(p => p.id === prescription.id)
-      if (index !== -1) {
-        prescriptions.value[index].status = 'cancelled'
-        ElMessage.success('处方已成功作废')
+    /*
+      const prescriptions = ref([
+      {
+        id: '',
+        patientId: '',
+        patientName: '张三',
+        patientGender: 'male',
+        patientAge: 35,
+        doctorId: '',
+        doctorName: '李医生',
+        doctorLicenseNumber: 'MD12345678',
+        department: '内科',
+        date: '',
+        // diagnosis: '',
+        status: '',
+        medicines: [  ],
+        instructions: ''
+      }
+    ])
+     */
+    const cancelPrescription = async (prescription) => {
+      try {
+        loading.value = true
+        
+        // 调用实际API更新处方状态为已作废
+        const response = await fetch(`${BASE_API_URL}/api/diagnosis/prescription/${prescription.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            patientId: prescription.patientId,
+            dockerId: prescription.doctorId,
+            date: prescription.date,
+            medicines: prescription.medicines,
+            instructions: prescription.instructions,
+            status: 'cancelled'
+          })
+        })
+        
+        if (response.ok) {
+          const index = prescriptions.value.findIndex(p => p.id === prescription.id)
+          if (index !== -1) {
+            prescriptions.value[index].status = 'cancelled'
+            ElMessage.success('处方已成功作废')
+          }
+        } else {
+          throw new Error('作废处方失败')
+        }
+      } catch (error) {
+        console.error('作废处方失败:', error)
+        ElMessage.error('作废处方失败')
+      } finally {
+        loading.value = false
       }
     }
     
     // 保存处方
-    const savePrescription = (prescription, submit = false) => {
+    // 保存处方
+    const savePrescription = async (prescription, submit = false) => {
       loading.value = true
       
-      // 模拟API调用
-      setTimeout(() => {
-        if (prescription.id) {
-          // 更新现有处方
-          const index = prescriptions.value.findIndex(p => p.id === prescription.id)
-          if (index !== -1) {
-            if (submit) {
-              prescription.status = 'completed'
-            }
-            prescriptions.value[index] = { ...prescription }
-          }
-        } else {
-          // 创建新处方
-          const newPrescription = {
-            ...prescription,
-            id: `RX${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}${String(prescriptions.value.length + 1).padStart(3, '0')}`,
-            status: submit ? 'completed' : 'draft'
-          }
-          
-          prescriptions.value.unshift(newPrescription)
+      try {
+        // 添加 data
+        const prescriptionData = {
+          patientId: prescription.patientId,
+          doctorId: prescription.doctorId,
+          date: prescription.date,
+          medicines: prescription.medicines,
+          instructions: prescription.instructions,
+          status: submit ? 'completed' : 'draft'
         }
         
-        loading.value = false
+        let response
+        let savedPrescription
+        
+        if (prescription.id) {
+          // 先检查处方是否存在
+          try {
+            const checkResponse = await fetch(`${BASE_API_URL}/api/diagnosis/prescription/${prescription.id}`)
+            
+            if (checkResponse.ok) {
+              // 处方存在，使用 PUT 更新
+              response = await fetch(`${BASE_API_URL}/api/diagnosis/prescription/${prescription.id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(prescriptionData)
+              })
+              
+              if (response.ok) {
+                savedPrescription = await response.json()
+                
+                const index = prescriptions.value.findIndex(p => p.id === prescription.id)
+                if (index !== -1) {
+                  prescriptions.value[index] = { 
+                    ...prescription, 
+                    status: submit ? 'completed' : 'draft'
+                  }
+                }
+                
+                ElMessage.success(`处方已${submit ? '提交' : '更新'}`)
+              } else {
+                throw new Error('更新处方失败')
+              }
+            } else {
+              throw new Error('处方不存在')
+            }
+          } catch (error) {
+            console.error('检查处方失败，尝试创建新处方:', error)
+            // 处方不存在或检查失败，使用 POST 创建
+            response = await fetch(`${BASE_API_URL}/api/diagnosis/prescription`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(prescriptionData)
+            })
+            
+            if (response.ok) {
+              savedPrescription = await response.json()
+              
+              // 将新处方添加到列表
+              prescriptions.value.unshift({
+                ...prescription,
+                id: savedPrescription.id,
+                status: submit ? 'completed' : 'draft'
+              })
+              
+              ElMessage.success(`处方已${submit ? '提交' : '创建'}`)
+            } else {
+              throw new Error('创建处方失败')
+            }
+          }
+        } else {
+          // 没有ID，直接创建新处方
+          response = await fetch(`${BASE_API_URL}/api/diagnosis/prescription`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(prescriptionData)
+          })
+          
+          if (response.ok) {
+            savedPrescription = await response.json()
+            
+            // 将新处方添加到列表
+            prescriptions.value.unshift({
+              ...prescription,
+              id: savedPrescription.id,
+              status: submit ? 'completed' : 'draft'
+            })
+            
+            ElMessage.success(`处方已${submit ? '提交' : '创建'}`)
+          } else {
+            throw new Error('创建处方失败')
+          }
+        }
+        
+        // 关闭表单对话框
         prescriptionFormVisible.value = false
-        ElMessage.success(`处方已${submit ? '提交' : '保存'}`)
-      }, 1000)
+        
+      } catch (error) {
+        console.error('保存处方失败:', error)
+        ElMessage.error('保存处方失败')
+      } finally {
+        loading.value = false
+      }
     }
     
     // 打印处方
     const printPrescription = (prescription) => {
       ElMessage.success(`正在打印处方 ${prescription.id}`)
       
-      // 实际项目中应该调用浏览器打印功能或生成PDF
+      // TODO 实际项目中应该调用浏览器打印功能或生成PDF
     }
     
     // 导出为Excel
     const exportToExcel = () => {
       ElMessage.success('正在导出处方列表到Excel')
       
-      // 实际项目中应该生成并下载Excel文件
+      // TODO 实际项目中应该生成并下载Excel文件
     }
     
     // 处理搜索
@@ -683,7 +803,8 @@ export default {
       handleSizeChange,
       handleCurrentChange,
       goToDashboard,
-      goToQueue
+      goToQueue,
+      fetchDoctorPrescriptions
     }
   }
 }

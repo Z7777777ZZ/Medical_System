@@ -264,7 +264,7 @@ class QueueService:
 
             
             
-              # from flask_jwt_extended import get_jwt_identity
+            # from flask_jwt_extended import get_jwt_identity
             # current_user_id = get_jwt_identity() if get_jwt_identity() else 0
             # is_current_user = (current_user_id == patient.id)
             is_current_user = False
@@ -275,6 +275,9 @@ class QueueService:
             'gender': None,  # 暂不获取性别信息，因为它在patient_details表中
             'symptom': queue.visit_reason if hasattr(queue, 'visit_reason') else None,
             'waitingTime': waiting_time,
+            'priority': queue.priority,
+            'queueNumber': queue.queue_number,
+            'status': queue.status,
             'examResult': '',  # 排队中的患者通常没有检查结果
             'isCurrentUser': is_current_user
         })

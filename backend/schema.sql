@@ -1,3 +1,4 @@
+USE medical_system;
 -- 首先删除依赖medicines表的表（处理外键约束）
 DROP TABLE IF EXISTS prescription_details;
 DROP TABLE IF EXISTS prescriptions;
