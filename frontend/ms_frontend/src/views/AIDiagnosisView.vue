@@ -384,12 +384,6 @@ export default {
             
             // this.detailDialogVisible = true;
         },
-
-        // 处理评价提交事件
-        handleReviewSubmitted() {
-            // 刷新医生列表
-            this.searchDoctors();
-        },
         
         generateAIDiagnosis() {
             // 模拟AI诊断逻辑 - 实际项目中这里应该是API调用

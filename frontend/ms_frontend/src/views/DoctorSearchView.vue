@@ -494,6 +494,12 @@ export default {
             //     ElMessage.error('获取医生详情失败');
             // }
         },
+
+        // 处理评价提交事件
+        handleReviewSubmitted() {
+            // 刷新医生列表
+            this.searchDoctors();
+        },
         
         // 提交评价
         async submitReview() {
