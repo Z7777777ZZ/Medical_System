@@ -123,7 +123,7 @@ class DoctorReview(db.Model):
             'doctor_name': self.doctor.name if self.doctor else None,
             'rating': self.rating,
             'comment': self.comment,
-            'review_data': self.review_data.strftime('%Y-%m-%d %H:%M:%S')
+            'review_date': self.review_date.strftime('%Y-%m-%d %H:%M:%S')
         }
 
 @app.route('/api/hospitals', methods=['GET'])
@@ -229,19 +229,19 @@ def get_doctor(doctor_id):
         'review_count': doctor.review_count if doctor.review_count else 0
     })
 
-@app.route('/api/doctors/<int:doctor_id>/rating', methods=['GET'])
-def get_doctor_rating(doctor_id):
-    avg_rating = db.session.query(
-        db.func.avg(DoctorReview.rating).label('average')
-    ).filter(DoctorReview.doctor_id == doctor_id).scalar()
+# @app.route('/api/doctors/<int:doctor_id>/rating', methods=['GET'])
+# def get_doctor_rating(doctor_id):
+#     avg_rating = db.session.query(
+#         db.func.avg(DoctorReview.rating).label('average')
+#     ).filter(DoctorReview.doctor_id == doctor_id).scalar()
     
-    review_count = DoctorReview.query.filter_by(doctor_id=doctor_id).count()
+#     review_count = DoctorReview.query.filter_by(doctor_id=doctor_id).count()
     
-    return jsonify({
-        'doctor_id': doctor_id,
-        'average_rating': float(avg_rating) if avg_rating else 0,
-        'review_count': review_count
-    })
+#     return jsonify({
+#         'doctor_id': doctor_id,
+#         'average_rating': float(avg_rating) if avg_rating else 0,
+#         'review_count': review_count
+#     })
 
 @app.route('/api/doctors/<int:doctor_id>/reviews', methods=['GET'])
 def get_doctor_reviews(doctor_id):
@@ -525,7 +525,8 @@ def update_doctors_ratings():
             doctor.review_count = review_count if review_count else 0
         
         db.session.commit()
-        print(f"已更新 {len(doctors)} 位医生的评分数据")
+        # print(f"已更新 {len(doctors)} 位医生的评分数据")
+        app.logger.info(f"已更新 {len(doctors)} 位医生的评分数据") # 使用 app.logger
 
 if __name__ == '__main__':
     # 测试deepseek服务
