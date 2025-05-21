@@ -59,7 +59,7 @@
                                 v-model="card.average_rating" 
                                 disabled 
                                 show-score 
-                                text-color="#ff9900" 
+                                text-color="#ff9900"
                                 :score-template="`${card.average_rating.toFixed(1)} 分`"
                                 style="margin-left: 0px;"
                             />
@@ -115,7 +115,12 @@
 
         </div>
 
-        <!-- 医生详情对话框 -->
+        <!-- 使用医生详情子组件 -->
+        <DoctorDetail 
+            ref="doctorDetail" 
+        />
+
+        <!-- 医生详情对话框 改用子组件 v-model="detailDialogVisible" 设置为false -->
         <el-dialog v-model="detailDialogVisible" title="医生详情" width="50%">
             <div v-if="selectedDoctor">
                 <div style="display: flex; margin-bottom: 20px;">
@@ -233,12 +238,14 @@
 import { Search, View, Calendar } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import DoctorDetail from '../components/DoctorDetailDialog.vue'
 
 export default {
     name: 'doctor-search',
     components: {
         View,
-        Calendar
+        Calendar,
+        DoctorDetail
     },
     data() {
         return {
@@ -462,27 +469,30 @@ export default {
 
         // 显示医生详情
         async showDoctorDetail(doctor) {
-            this.selectedDoctor = doctor;
-            try {
-                // 重新获取医生详情数据（包括最新评分和评论数量）
-                const doctorResponse = await axios.get(`/doctors/${doctor.doctor_id}`);
-                this.selectedDoctor = doctorResponse.data;
+            // 改用子组件
+            this.$refs.doctorDetail.show(doctor.doctor_id);
 
-                // 获取医生评价
-                const response = await axios.get(`/doctors/${doctor.doctor_id}/reviews`);
-                this.doctorReviews = response.data;
+            // this.selectedDoctor = doctor;
+            // try {
+            //     // 重新获取医生详情数据（包括最新评分和评论数量）
+            //     const doctorResponse = await axios.get(`/doctors/${doctor.doctor_id}`);
+            //     this.selectedDoctor = doctorResponse.data;
+
+            //     // 获取医生评价
+            //     const response = await axios.get(`/doctors/${doctor.doctor_id}/reviews`);
+            //     this.doctorReviews = response.data;
                 
-                // 重置评价表单
-                this.reviewForm = {
-                    rating: 5,
-                    comment: ''
-                };
+            //     // 重置评价表单
+            //     this.reviewForm = {
+            //         rating: 5,
+            //         comment: ''
+            //     };
                 
-                this.detailDialogVisible = true;
-            } catch (error) {
-                console.error('获取医生评价失败:', error);
-                ElMessage.error('获取医生详情失败');
-            }
+            //     this.detailDialogVisible = true;
+            // } catch (error) {
+            //     console.error('获取医生评价失败:', error);
+            //     ElMessage.error('获取医生详情失败');
+            // }
         },
         
         // 提交评价
@@ -528,6 +538,10 @@ export default {
 
         // 预约医生
         bookAppointment(doctor) {
+            // 请接入实际的预约挂号接口
+            ElMessage.warning('未接入实际的预约挂号接口');
+
+            // 以下为模拟挂号
             this.appointment_selectedDoctor = doctor;
             this.appointmentForm = {
                 date: '',

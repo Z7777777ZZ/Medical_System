@@ -61,7 +61,7 @@ class Doctor(db.Model):
 
     def to_dict(self):
         return {
-            # 'doctor_id': self.doctor_id,
+            'doctor_id': self.doctor_id,
             'phone': self.phone,
             'name': self.name,
             # 'hospital_id': self.hospital_id,

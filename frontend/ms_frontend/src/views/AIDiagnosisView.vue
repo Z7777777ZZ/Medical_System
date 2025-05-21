@@ -145,7 +145,13 @@
             </template>
         </el-dialog>
 
-        <!-- 医生详情对话框 -->
+        <!-- 使用医生详情子组件 -->
+        <DoctorDetail 
+            ref="doctorDetail" 
+            @review-submitted="handleReviewSubmitted"
+        />
+
+        <!-- 医生详情对话框 改用子组件 v-model="detailDialogVisible" 设置为false -->
         <el-dialog v-model="detailDialogVisible" title="医生详情" width="40%" :destroy-on-close="true">
             <div v-if="selectedDoctor">
                 <div style="display: flex; margin-bottom: 20px;">
@@ -178,6 +184,7 @@
 import { Promotion, Calendar, View, InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import DoctorDetail from '../components/DoctorDetailDialog.vue'
 
 export default {
     name: 'AIDiagnosisView',
@@ -185,7 +192,8 @@ export default {
         Promotion,
         Calendar,
         View,
-        InfoFilled
+        InfoFilled,
+        DoctorDetail,
     },
     data() {
         return {
@@ -321,6 +329,10 @@ export default {
 
         // 预约医生
         bookAppointment(doctor) {
+            // 请接入实际的预约挂号接口
+            ElMessage.warning('未接入实际的预约挂号接口');
+
+            // 以下为模拟挂号
             this.selectedDoctor = doctor;
             // this.selectedDoctor = { ...doctor }; // 使用对象展开避免引用问题
             this.appointmentForm = {
@@ -355,19 +367,28 @@ export default {
             this.appointmentDialogVisible = false;
         },
         
-        // 查看医生详情
+        // 查看医生详情 - 使用DoctorDetail组件
         viewDoctorDetail(doctor) {
-            this.selectedDoctor = doctor;
+            console.log('查看医生详情:', doctor);
+            this.$refs.doctorDetail.show(doctor.doctor_id);
             
-            // 模拟医生详情数据
-            this.selectedDoctor.bio = "资深医学专家，从事临床工作20余年，在相关领域有丰富经验。";
-            this.selectedDoctor.schedule = [
-                { day: '周一', time: '上午 9:00-12:00', location: '门诊部3楼302室' },
-                { day: '周三', time: '下午 2:00-5:00', location: '门诊部3楼302室' },
-                { day: '周五', time: '上午 9:00-12:00', location: '门诊部3楼302室' }
-            ];
+            // this.selectedDoctor = doctor;
             
-            this.detailDialogVisible = true;
+            // // 模拟医生详情数据
+            // this.selectedDoctor.bio = "资深医学专家，从事临床工作20余年，在相关领域有丰富经验。";
+            // this.selectedDoctor.schedule = [
+            //     { day: '周一', time: '上午 9:00-12:00', location: '门诊部3楼302室' },
+            //     { day: '周三', time: '下午 2:00-5:00', location: '门诊部3楼302室' },
+            //     { day: '周五', time: '上午 9:00-12:00', location: '门诊部3楼302室' }
+            // ];
+            
+            // this.detailDialogVisible = true;
+        },
+
+        // 处理评价提交事件
+        handleReviewSubmitted() {
+            // 刷新医生列表
+            this.searchDoctors();
         },
         
         generateAIDiagnosis() {
