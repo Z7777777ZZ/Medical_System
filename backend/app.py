@@ -85,25 +85,66 @@ class Department(db.Model):
     name = db.Column(db.String(50), nullable=False)
     hospital_id = db.Column(db.BigInteger, db.ForeignKey('hospitals.hospital_id'), nullable=False)
 
+@app.route('/api/hospitals', methods=['GET'])
+def get_hospitals():
+    hospitals = Hospital.query.all()
+    return jsonify([{
+        'hospital_id': h.hospital_id,
+        'name': h.name,
+        'address': h.address
+    } for h in hospitals])
+
+@app.route('/api/departments', methods=['GET'])
+def get_departments():
+    # 使用 distinct 对科室名称进行去重
+    departments = db.session.query(
+        Department.department_id,
+        Department.name
+    ).distinct(Department.name).all()
+    # departments = Department.query.all()
+    return jsonify([{
+        'department_id': d.department_id,
+        'name': d.name,
+        # 'hospital_id': d.hospital_id
+    } for d in departments])
+
+
 @app.route('/api/doctors/search', methods=['GET'])
 def search_doctors():
     search_term = request.args.get('query', '').strip().lower()
+    # hospital_id = request.args.get('hospital_id', type=int)
+    hospital_name = request.args.get('hospital')
+    department_name = request.args.get('department')
+    print(hospital_name, department_name)
 
-    if not search_term:
-        doctors = Doctor.query.all()
-        return jsonify([doctor.to_dict() for doctor in doctors])
-        # return jsonify({"error": "查询参数不能为空"}), 400
+    # if not search_term:
+    #     doctors = Doctor.query.all()
+    #     return jsonify([doctor.to_dict() for doctor in doctors])
+    #     # return jsonify({"error": "查询参数不能为空"}), 400
     
-    query = Doctor.query.join(Hospital).join(Department)
+    # query = Doctor.query.join(Hospital).join(Department)
+    query = Doctor.query.join(Hospital).join(Department, Doctor.department_id == Department.department_id)
+    # print(query)
 
-    query = query.filter(
-        db.or_(
-            Doctor.name.ilike(f'%{search_term}%'),
-            Hospital.name.ilike(f'%{search_term}%'),
-            Department.name.ilike(f'%{search_term}%'),
-            Doctor.specialty.ilike(f'%{search_term}%')
+    # 添加筛选条件
+    if hospital_name:
+        query = query.filter(Hospital.name == hospital_name)
+    
+    if department_name:
+        query = query.filter(Department.name == department_name)
+
+    # print(query)
+
+    # 关键词搜索
+    if search_term:
+        query = query.filter(
+            db.or_(
+                Doctor.name.ilike(f'%{search_term}%'),
+                Hospital.name.ilike(f'%{search_term}%'),
+                Department.name.ilike(f'%{search_term}%'),
+                Doctor.specialty.ilike(f'%{search_term}%')
+            )
         )
-    )
 
     doctors = query.all()
     return jsonify([doctor.to_dict() for doctor in doctors])
@@ -135,7 +176,7 @@ def ai_diagnosis():
         # prompt += "（以“推荐科室”开头，科室之间用“、”分隔，科室请从[" + Department_str + "]中选择）"
         # prompt += "，四项内容之间用---分割。"
 
-        prompt += "回答要求如下：首先给出可能疾病（以“可能疾病”开头，疾病之间用“、”分隔），然后给出建议（建议分点列出），接着直接给出紧急程度（以“紧急程度”开头，紧急程度分为低、中、高）及其备注，最后根据诊断结果推荐不超过3位最适合的医生"
+        prompt += "回答要求如下：首先给出可能疾病（以“可能疾病”开头，疾病之间用“、”分隔，每种疾病后跟一对括号给出可能性评级，如\"中概率\"），然后给出建议（建议分点列出），接着直接给出紧急程度（以“紧急程度”开头，紧急程度分为低、中、高）及其备注，最后根据诊断结果推荐不超过3位最适合的医生"
         prompt += "（以“推荐医生”开头，给出医生信息（ID和名字必须给出），参考输出格式为“1-张伟（北京协和医院-内科，呼吸系统疾病相关症状评估）”，每行给出一个医生，可选的医生信息如下："
         prompt += doctor_info + "）"
         prompt += "，四项内容之间用---分割。"

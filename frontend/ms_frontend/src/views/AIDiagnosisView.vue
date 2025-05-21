@@ -26,6 +26,11 @@
         <!-- AI诊断结果 -->
         <div v-if="showResults" style="margin: 40px; padding: 20px; background: #f5f7fa; border-radius: 8px;">
             <div style="font-size: 1.5em; font-weight: bold; margin-bottom: 20px;">AI初步诊断</div>
+
+            <!-- 添加AI生成提示 -->
+            <div style="color: #999; font-size: 14px; margin-bottom: 15px; font-style: italic;">
+                <el-icon><InfoFilled /></el-icon> 本回答由 AI 生成，内容仅供参考，请仔细甄别。
+            </div>
             
             <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
                 <div style="font-weight: bold; color: #409EFF; margin-bottom: 10px;">可能疾病:</div>
@@ -67,21 +72,112 @@
                     <div style="color: #666; margin: 5px 0;">{{ doctor.hospital }}</div>
                     <div style="color: #409EFF;">{{ doctor.department }}</div>
                     <div style="margin-top: 10px; font-size: 14px;">专长: {{ doctor.specialty }}</div>
+
+                    <!-- 添加按钮区域 -->
+                    <div style="margin-top: 15px; display: flex; justify-content: space-between;">
+                        <el-button 
+                            type="primary" 
+                            size="small"
+                            @click.stop="bookAppointment(doctor)"
+                        >
+                            <el-icon><Calendar /></el-icon>
+                            预约
+                        </el-button>
+                        <el-button 
+                            type="info" 
+                            size="small"
+                            @click.stop="viewDoctorDetail(doctor)"
+                        >
+                            <el-icon><View /></el-icon>
+                            详情
+                        </el-button>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- 预约对话框 -->
+        <el-dialog v-model="appointmentDialogVisible" title="预约医生" width="30%">
+            <div v-if="selectedDoctor">
+                <p>您正在预约: <strong>{{ selectedDoctor.name }}</strong></p>
+                <p>科室: {{ selectedDoctor.department }}</p>
+                <p>医院: {{ selectedDoctor.hospital }}</p>
+                
+                <el-form :model="appointmentForm" label-width="80px" style="margin-top: 20px;">
+                    <el-form-item label="预约时间">
+                        <el-date-picker
+                            v-model="appointmentForm.date"
+                            type="date"
+                            placeholder="选择日期"
+                            style="width: 100%"
+                        />
+                    </el-form-item>
+                    <el-form-item label="时间段">
+                        <el-select v-model="appointmentForm.timeSlot" placeholder="选择时间段" style="width: 100%">
+                            <el-option label="上午 9:00-11:00" value="morning" />
+                            <el-option label="下午 2:00-4:00" value="afternoon" />
+                            <el-option label="晚上 6:00-8:00" value="evening" />
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item label="症状描述">
+                        <el-input
+                            v-model="appointmentForm.symptoms"
+                            type="textarea"
+                            :rows="3"
+                            placeholder="请描述您的症状"
+                        />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="appointmentDialogVisible = false">取消</el-button>
+                    <el-button type="primary" @click="confirmAppointment">确认预约</el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- 医生详情对话框 -->
+        <el-dialog v-model="detailDialogVisible" title="医生详情" width="40%">
+            <div v-if="selectedDoctor">
+                <div style="display: flex; margin-bottom: 20px;">
+                    <div style="flex: 1;">
+                        <h3>{{ selectedDoctor.name }}</h3>
+                        <p><strong>医院:</strong> {{ selectedDoctor.hospital }}</p>
+                        <p><strong>科室:</strong> {{ selectedDoctor.department }}</p>
+                        <p><strong>专长:</strong> {{ selectedDoctor.specialty }}</p>
+                    </div>
+                    <div style="flex: 1;">
+                        <p><strong>简介:</strong></p>
+                        <p>{{ selectedDoctor.bio || '暂无详细介绍' }}</p>
+                    </div>
+                </div>
+                
+                <div v-if="selectedDoctor.schedule" style="margin-top: 20px;">
+                    <h4>出诊时间</h4>
+                    <el-table :data="selectedDoctor.schedule" border style="width: 100%">
+                        <el-table-column prop="day" label="星期" width="120" />
+                        <el-table-column prop="time" label="时间段" />
+                        <el-table-column prop="location" label="地点" />
+                    </el-table>
+                </div>
+            </div>
+        </el-dialog>
     </el-scrollbar>
 </template>
 
 <script>
-import { Promotion } from '@element-plus/icons-vue'
+import { Promotion, Calendar, View, InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 
 export default {
     name: 'AIDiagnosisView',
     components: {
-        Promotion
+        Promotion,
+        Calendar,
+        View,
+        InfoFilled
     },
     data() {
         return {
@@ -137,7 +233,19 @@ export default {
                     specialty: '冠心病',
                     phone: '13800005555'
                 }
-            ]
+            ],
+
+            // 预约相关数据
+            appointmentDialogVisible: false,
+            selectedDoctor: null,
+            appointmentForm: {
+                date: '',
+                timeSlot: '',
+                symptoms: ''
+            },
+            
+            // 详情对话框
+            detailDialogVisible: false,
         }
     },
     computed: {
@@ -192,7 +300,7 @@ export default {
                 // this.recommendDoctors();
                 // 直接从响应中获取推荐的医生
                 this.recommendedDoctors = response.data.recommendedDoctors || [];
-                
+
                 this.showResults = true;
                 
             } catch (error) {
@@ -201,6 +309,53 @@ export default {
             } finally {
                 this.isLoading = false;
             }
+        },
+
+        // 预约医生
+        bookAppointment(doctor) {
+            this.selectedDoctor = doctor;
+            this.appointmentForm = {
+                date: '',
+                timeSlot: '',
+                symptoms: this.symptomDescription
+            };
+            this.appointmentDialogVisible = true;
+        },
+        
+        // 确认预约
+        confirmAppointment() {
+            if (!this.appointmentForm.date) {
+                ElMessage.warning('请选择预约日期');
+                return;
+            }
+            if (!this.appointmentForm.timeSlot) {
+                ElMessage.warning('请选择时间段');
+                return;
+            }
+            
+            // 这里应该调用预约API
+            console.log('预约信息:', {
+                doctor: this.selectedDoctor,
+                appointment: this.appointmentForm
+            });
+            
+            ElMessage.success(`已成功预约${this.selectedDoctor.name}医生`);
+            this.appointmentDialogVisible = false;
+        },
+        
+        // 查看医生详情
+        viewDoctorDetail(doctor) {
+            this.selectedDoctor = doctor;
+            
+            // 模拟医生详情数据
+            this.selectedDoctor.bio = "资深医学专家，从事临床工作20余年，在相关领域有丰富经验。";
+            this.selectedDoctor.schedule = [
+                { day: '周一', time: '上午 9:00-12:00', location: '门诊部3楼302室' },
+                { day: '周三', time: '下午 2:00-5:00', location: '门诊部3楼302室' },
+                { day: '周五', time: '上午 9:00-12:00', location: '门诊部3楼302室' }
+            ];
+            
+            this.detailDialogVisible = true;
         },
         
         generateAIDiagnosis() {
@@ -260,11 +415,11 @@ export default {
                 : this.doctorDatabase.slice(0, 3); // 默认推荐3位医生
         },
         
-        viewDoctorDetail(doctor) {
-            // 这里可以跳转到医生详情页或显示详情对话框
-            ElMessage.success(`已选择医生: ${doctor.name} (${doctor.hospital} ${doctor.department})`);
-            console.log('医生详情:', doctor);
-        }
+        // viewDoctorDetail(doctor) {
+        //     // 这里可以跳转到医生详情页或显示详情对话框
+        //     ElMessage.success(`已选择医生: ${doctor.name} (${doctor.hospital} ${doctor.department})`);
+        //     console.log('医生详情:', doctor);
+        // }
     }
 }
 </script>
@@ -288,5 +443,10 @@ export default {
 
 .el-divider {
     margin: 15px 0;
+}
+
+/* 按钮样式调整 */
+.el-button {
+    padding: 8px 12px;
 }
 </style>

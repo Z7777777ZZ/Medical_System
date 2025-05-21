@@ -6,7 +6,18 @@
         <!-- 查询框 -->
         <div style="width:100%; margin-left: 50px; padding-top:5vh;">
 
-            <el-input v-model="toSearch" :prefix-icon="Search" style="display:inline; " placeholder="输入姓名、科室、医院等" @keyup.enter="searchDoctors"></el-input>
+            <el-input v-model="toSearch" :prefix-icon="Search" style="display:inline;" placeholder="输入姓名、专长、科室等" @keyup.enter="searchDoctors"></el-input>
+            
+            <el-select v-model="selectedHospital" clearable placeholder="选择医院" style="width: 200px; margin-left: 10px;">
+                <el-option v-for="hospital in hospitals" :key="hospital.hospital_id" 
+                    :label="hospital.name" :value="hospital.name" />
+            </el-select>
+
+            <el-select v-model="selectedDepartment" clearable placeholder="选择科室" style="width: 200px; margin-left: 10px;">
+                <el-option v-for="dept in departments" :key="dept.department_id" 
+                    :label="dept.name" :value="dept.name" />
+            </el-select>
+            
             <el-button style="margin-left: 10px;" type="primary" @click="searchDoctors" :loading="loading">查询</el-button>
 
             <!-- <el-select v-model="queryCond.sortBy" size="middle" style="width: 12.5vw; margin-left: 30px;">
@@ -177,14 +188,40 @@ export default {
             ],
             filteredCards: [],
             loading: false,
+
+            selectedHospital: null,
+            selectedDepartment: null,
+            hospitals: [],
+            departments: [],
         }
     },
-    created() {
+    async created() {
+        // 初始化时加载医院和科室数据
+        await this.fetchHospitals();
+        await this.fetchDepartments();
         // 初始化时加载所有医生
         // this.filteredCards = [...this.doctors];
         this.searchDoctors();
     },
     methods: {
+        async fetchHospitals() {
+            try {
+                const response = await axios.get('/hospitals');
+                this.hospitals = response.data;
+            } catch (error) {
+                console.error('获取医院列表失败:', error);
+                ElMessage.error('获取医院列表失败');
+            }
+        },
+        async fetchDepartments() {
+            try {
+                const response = await axios.get('/departments');
+                this.departments = response.data;
+            } catch (error) {
+                console.error('获取科室列表失败:', error);
+                ElMessage.error('获取科室列表失败');
+            }
+        },
         async searchDoctors() {
             // 前端模拟数据
             // if (!this.toSearch.trim()) {
@@ -211,11 +248,25 @@ export default {
             // 前后端集成
             this.loading = true;
             try {
-                const response = await axios.get('/doctors/search',{
-                    params: {
-                        query: this.toSearch,
-                    }
-                });
+                // const response = await axios.get('/doctors/search',{
+                //     params: {
+                //         query: this.toSearch,
+                //     }
+                // });
+
+                const params = {
+                    query: this.toSearch,
+                };
+                
+                if (this.selectedHospital) {
+                    params.hospital = this.selectedHospital;
+                }
+                
+                if (this.selectedDepartment) {
+                    params.department = this.selectedDepartment;
+                }
+
+                const response = await axios.get('/doctors/search', { params });
 
                 this.filteredCards = response.data;
 
