@@ -10,3 +10,8 @@ class Config:
 
     API_KEY = 'sk-1eac2c03ec0e4cbba82ed465aea18962'
     API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+    # 数据库配置
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
+                              "mysql+pymysql://root:123456@localhost:3306/medical_system"
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
