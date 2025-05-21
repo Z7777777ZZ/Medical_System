@@ -5,6 +5,7 @@ from flask_cors import CORS  # 跨域支持
 from aidg.services.ai_service import DeepSeekService
 from config import Config
 from flask_sqlalchemy import SQLAlchemy
+import re
 
 app = Flask(__name__)
 
@@ -116,9 +117,57 @@ def ai_diagnosis():
     if not prompt:
         return jsonify({"error": "Prompt不能为空"}), 400
     
+    # 获取科室信息
+    # departments = ['内科', '外科', '妇产科', '儿科', '骨科', '心脏内科', '神经内科', '急诊科', '肿瘤科', '眼科']
+    # Department_str = '、'.join(departments)
+
+    # 获取所有医生信息用于AI参考
+    doctors = Doctor.query.join(Hospital).join(Department).all()
+    doctor_info = "\n".join([
+        f"医生ID: {d.doctor_id}, 医生: {d.name}, 医院: {d.hospital.name}, 科室: {d.department.name}, 专长: {d.specialty}"
+        for d in doctors
+    ])
+    
     try:
         # 调用DeepSeek服务 - 现在直接返回字符串响应
-        prompt += "回答要求如下：首先给出可能疾病（以“可能疾病”开头，疾病之间用“、”分隔），然后给出建议（建议分点列出），最后直接给出紧急程度（以“紧急程度”开头，紧急程度分为低、中、高）及其备注，三项内容之间用---分割。"
+        # prompt += "回答要求如下：首先给出可能疾病（以“可能疾病”开头，疾病之间用“、”分隔），然后给出建议（建议分点列出），最后直接给出紧急程度（以“紧急程度”开头，紧急程度分为低、中、高）及其备注，三项内容之间用---分割。"
+        # prompt += "回答要求如下：首先给出可能疾病（以“可能疾病”开头，疾病之间用“、”分隔），然后给出建议（建议分点列出），接着直接给出紧急程度（以“紧急程度”开头，紧急程度分为低、中、高）及其备注，最后根据诊断结果给出推荐科室"
+        # prompt += "（以“推荐科室”开头，科室之间用“、”分隔，科室请从[" + Department_str + "]中选择）"
+        # prompt += "，四项内容之间用---分割。"
+
+        prompt += "回答要求如下：首先给出可能疾病（以“可能疾病”开头，疾病之间用“、”分隔），然后给出建议（建议分点列出），接着直接给出紧急程度（以“紧急程度”开头，紧急程度分为低、中、高）及其备注，最后根据诊断结果推荐不超过3位最适合的医生"
+        prompt += "（以“推荐医生”开头，给出医生信息（ID和名字必须给出），参考输出格式为“1-张伟（北京协和医院-内科，呼吸系统疾病相关症状评估）”，每行给出一个医生，可选的医生信息如下："
+        prompt += doctor_info + "）"
+        prompt += "，四项内容之间用---分割。"
+        
+        # 构建更详细的提示词，包含医生信息
+        # prompt += """
+        # 回答要求如下：
+        # 1. 首先给出可能疾病（以"可能疾病:"开头，疾病之间用"、"分隔）
+        # 2. 然后给出建议（建议分点列出）
+        # 3. 直接给出紧急程度（以"紧急程度:"开头，紧急程度分为低、中、高）及其备注
+        # 4. 最后根据诊断结果推荐3位最适合的医生（以"推荐医生:"开头）
+        
+        # 可选的医生信息如下：
+        # """ + doctor_info + """
+        
+        # 请按照以下格式返回：
+        # 可能疾病: 疾病1、疾病2、疾病3
+        # ---
+        # 建议:
+        # 1. 建议1
+        # 2. 建议2
+        # 3. 建议3
+        # ---
+        # 紧急程度: 中
+        # 备注: 这是备注信息
+        # ---
+        # 推荐医生: 
+        # 1. 医生A (医院X, 科室Y, 专长Z)
+        # 2. 医生B (医院X, 科室Y, 专长Z)
+        # 3. 医生C (医院X, 科室Y, 专长Z)
+        # """
+
         raw_response = DeepSeekService.generate_response(prompt)
         print(raw_response)
 
@@ -127,7 +176,8 @@ def ai_diagnosis():
             "possibleDiseases": [],
             "suggestions": [],
             "urgencyLevel": "",
-            "urgencyNote": ""
+            "urgencyNote": "", 
+            "recommendedDoctors": []  # 新增推荐医生列表
         }
 
         # 按章节分割响应内容
@@ -173,7 +223,90 @@ def ai_diagnosis():
             if '备注：' in urgency_section:
                 urgency_note = urgency_section.split('备注：')[-1].strip()
                 structured_response["urgencyNote"] = urgency_note.replace('**', '').replace('(', '').replace(')', '').strip()
-        
+
+        # 解析推荐科室，给出推荐医生
+        # if len(sections) > 3:
+        #     department_section = sections[3]
+        #     # 提取推荐科室（格式：推荐科室：内科、外科、妇产科...）
+        #     if '推荐科室：' in department_section:
+        #         department_part = department_section.split('推荐科室：')[-1].strip()
+        #         # structured_response["departments"] = [
+        #         #     department.strip() 
+        #         #     for department in department_part.split('、')
+        #         #     if department.strip()
+        #         # ]
+        #         rec_departments = [d.strip() for d in department_part.split('、') if d.strip()]
+
+        #         # 查询每个推荐科室的医生（最多3个）
+        #         recommended_doctors = []
+        #         for dept_name in rec_departments[:3]:  # 最多处理前3个推荐科室
+        #             # 查询科室
+        #             department = Department.query.filter_by(name=dept_name).first()
+        #             if department:
+        #                 # 查询该科室的医生（随机取最多3个）
+        #                 doctors = Doctor.query.filter_by(department_id=department.department_id)\
+        #                                       .order_by(db.func.random())\
+        #                                       .limit(3)\
+        #                                       .all()
+        #                 for doctor in doctors:
+        #                     recommended_doctors.append(doctor.to_dict())
+                
+        #         # 去重并限制总数不超过3个
+        #         unique_doctors = []
+        #         seen_doctors = set()
+        #         for doctor in recommended_doctors:
+        #             doctor_key = (doctor['name'], doctor['hospital'], doctor['department'])
+        #             if doctor_key not in seen_doctors:
+        #                 seen_doctors.add(doctor_key)
+        #                 unique_doctors.append(doctor)
+        #                 if len(unique_doctors) >= 3:
+        #                     break
+                
+        #         structured_response["recommendedDoctors"] = unique_doctors
+
+        # 解析推荐医生
+        if len(sections) > 3:
+            doctor_section = sections[3]
+            if '推荐医生：' in doctor_section:
+                # print(doctor_section)
+                # 提取医生推荐部分
+                doctor_lines = [line.strip() for line in doctor_section.split('\n') if line.strip()]
+                doctor_lines = doctor_lines[1:]  # 跳过"推荐医生:"行
+
+                # print(doctor_lines)
+                
+                # 解析每位医生信息
+                for line in doctor_lines[:3]:  # 最多取3位医生
+                    # print(line)
+                    if line and line[0].isdigit():  # 检查是否是带序号的医生行
+                        # 获取医生id，取最前面的数字
+                        # extract_leading_number
+                        match = re.match(r'^\d+', line)  # 匹配开头的数字
+                        doctor_id = match.group() if match else None
+                        
+                        # 根据id提取医生信息
+                        if doctor_id:
+                            doctor = Doctor.query.filter_by(doctor_id=doctor_id).first()
+                            if doctor:
+                                structured_response["recommendedDoctors"].append(doctor.to_dict())
+
+                        # # 提取医生信息
+                        # doctor_info = line.split('.', 1)[-1].strip()
+                        # # 解析医生姓名、医院、科室、专长
+                        # parts = [p.strip() for p in doctor_info.split(',')]
+                        # if len(parts) >= 3:
+                        #     name = parts[0].split('(')[0].strip()
+                        #     hospital = parts[1].split(':')[-1].strip()
+                        #     department = parts[2].split(':')[-1].strip()
+                        #     specialty = parts[3].split(':')[-1].strip() if len(parts) > 3 else ""
+                            
+                        #     structured_response["recommendedDoctors"].append({
+                        #         "name": name,
+                        #         "hospital": hospital,
+                        #         "department": department,
+                        #         "specialty": specialty
+                        #     })
+
         print(structured_response)
 
         return jsonify(structured_response)
@@ -228,7 +361,7 @@ if __name__ == '__main__':
         # response = DeepSeekService.generate_response(prompt)
         # print(response)
 
-
+        """
         # 调用DeepSeek服务 - 现在直接返回字符串响应
         raw_response = DeepSeekService.generate_response(prompt)
         print(raw_response)
@@ -286,5 +419,6 @@ if __name__ == '__main__':
                 structured_response["urgencyNote"] = urgency_note.replace('**', '').strip()
 
         print(structured_response)
+        """
 
     app.run(debug=True)

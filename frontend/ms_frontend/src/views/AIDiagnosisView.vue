@@ -189,7 +189,10 @@ export default {
                 };
                 
                 // 根据诊断结果推荐医生
-                this.recommendDoctors();
+                // this.recommendDoctors();
+                // 直接从响应中获取推荐的医生
+                this.recommendedDoctors = response.data.recommendedDoctors || [];
+                
                 this.showResults = true;
                 
             } catch (error) {
