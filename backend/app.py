@@ -52,6 +52,9 @@ class Doctor(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
 
+    average_rating = db.Column(db.Float, default=0)  # 平均评分
+    review_count = db.Column(db.Integer, default=0)   # 评价数量
+
     # 定义关系
     hospital = db.relationship('Hospital', backref='doctors')
     department = db.relationship('Department', backref='doctors')
@@ -68,7 +71,9 @@ class Doctor(db.Model):
             'specialty': self.specialty,
             'bio': self.bio,
             # 'password_hash': self.password_hash,
-            # 'created_at': self.created_at
+            # 'created_at': self.created_at,
+            'average_rating': self.average_rating,
+            'review_count': self.review_count
         }
     
 # 医院模型
@@ -85,9 +90,48 @@ class Department(db.Model):
     name = db.Column(db.String(50), nullable=False)
     hospital_id = db.Column(db.BigInteger, db.ForeignKey('hospitals.hospital_id'), nullable=False)
 
+# 患者模型
+class Patient(db.Model):
+    __tablename__ = 'patients'
+    patient_id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    phone = db.Column(db.String(20), nullable=False)
+    email = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(50), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+# 医生评价模型
+class DoctorReview(db.Model):
+    __tablename__ = 'doctor_reviews'
+    review_id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    patient_id = db.Column(db.BigInteger, db.ForeignKey('patients.patient_id'), nullable=False)
+    doctor_id = db.Column(db.BigInteger, db.ForeignKey('doctors.doctor_id'), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)  # 1-5星
+    comment = db.Column(db.Text)
+    review_date = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+    # 定义关系
+    patient = db.relationship('Patient', backref='reviews')
+    doctor = db.relationship('Doctor', backref='reviews')
+
+    def to_dict(self):
+        return {
+            'review_id': self.review_id,
+            # 'patient_id': self.patient_id,
+            'patient_name': self.patient.name if self.patient else None,
+            # 'doctor_id': self.doctor_id,
+            'doctor_name': self.doctor.name if self.doctor else None,
+            'rating': self.rating,
+            'comment': self.comment,
+            'review_data': self.review_data.strftime('%Y-%m-%d %H:%M:%S')
+        }
+
 @app.route('/api/hospitals', methods=['GET'])
+# 定义一个函数，用于获取医院信息
 def get_hospitals():
+    # 从数据库中查询所有医院信息
     hospitals = Hospital.query.all()
+    # 将医院信息转换为json格式，并返回
     return jsonify([{
         'hospital_id': h.hospital_id,
         'name': h.name,
@@ -115,6 +159,7 @@ def search_doctors():
     # hospital_id = request.args.get('hospital_id', type=int)
     hospital_name = request.args.get('hospital')
     department_name = request.args.get('department')
+    sort_by = request.args.get('sort_by', 'default')  # 新增排序参数: rating, review_count
     print(hospital_name, department_name)
 
     # if not search_term:
@@ -146,8 +191,112 @@ def search_doctors():
             )
         )
 
+    # 添加排序逻辑
+    if sort_by == 'rating':
+        query = query.order_by(Doctor.average_rating.desc())
+    elif sort_by == 'review_count':
+        query = query.order_by(Doctor.review_count.desc())
+    else:
+        query = query.order_by(Doctor.doctor_id.asc())
+
+
     doctors = query.all()
-    return jsonify([doctor.to_dict() for doctor in doctors])
+    # return jsonify([doctor.to_dict() for doctor in doctors])
+    return jsonify([{
+        'doctor_id': doctor.doctor_id,
+        'name': doctor.name,
+        'phone': doctor.phone,
+        'hospital': doctor.hospital.name if doctor.hospital else None,
+        'department': doctor.department.name if doctor.department else None,
+        'specialty': doctor.specialty,
+        'bio': doctor.bio,
+        'average_rating': float(doctor.average_rating) if doctor.average_rating else 0,
+        'review_count': doctor.review_count if doctor.review_count else 0
+    } for doctor in doctors])
+
+@app.route('/api/doctors/<int:doctor_id>', methods=['GET'])
+def get_doctor(doctor_id):
+    doctor = Doctor.query.get_or_404(doctor_id)
+    return jsonify({
+        'doctor_id': doctor.doctor_id,
+        'name': doctor.name,
+        'phone': doctor.phone,
+        'hospital': doctor.hospital.name if doctor.hospital else None,
+        'department': doctor.department.name if doctor.department else None,
+        'specialty': doctor.specialty,
+        'bio': doctor.bio,
+        'average_rating': float(doctor.average_rating) if doctor.average_rating else 0,
+        'review_count': doctor.review_count if doctor.review_count else 0
+    })
+
+@app.route('/api/doctors/<int:doctor_id>/rating', methods=['GET'])
+def get_doctor_rating(doctor_id):
+    avg_rating = db.session.query(
+        db.func.avg(DoctorReview.rating).label('average')
+    ).filter(DoctorReview.doctor_id == doctor_id).scalar()
+    
+    review_count = DoctorReview.query.filter_by(doctor_id=doctor_id).count()
+    
+    return jsonify({
+        'doctor_id': doctor_id,
+        'average_rating': float(avg_rating) if avg_rating else 0,
+        'review_count': review_count
+    })
+
+@app.route('/api/doctors/<int:doctor_id>/reviews', methods=['GET'])
+def get_doctor_reviews(doctor_id):
+    reviews = DoctorReview.query.filter_by(doctor_id=doctor_id)\
+        .join(Patient, DoctorReview.patient_id == Patient.patient_id)\
+        .add_columns(Patient.name.label('patient_name'))\
+        .order_by(DoctorReview.review_date.desc())\
+        .all()
+    
+    return jsonify([{
+        'review_id': review.DoctorReview.review_id,
+        'patient_name': review.patient_name,
+        'rating': review.DoctorReview.rating,
+        'comment': review.DoctorReview.comment,
+        'review_date': review.DoctorReview.review_date.strftime('%Y-%m-%d %H:%M:%S')
+    } for review in reviews])
+
+    # reviews = DoctorReview.query.filter_by(doctor_id=doctor_id).order_by(DoctorReview.review_date.desc()).all()
+    # return jsonify([review.to_dict() for review in reviews])
+
+def update_doctor_rating(doctor_id):
+    # 计算新的平均评分
+    avg_rating = db.session.query(
+        db.func.avg(DoctorReview.rating).label('average')
+    ).filter(DoctorReview.doctor_id == doctor_id).scalar()
+    
+    review_count = DoctorReview.query.filter_by(doctor_id=doctor_id).count()
+    
+    # 更新医生表的评分信息
+    doctor = Doctor.query.get(doctor_id)
+    if doctor:
+        doctor.average_rating = float(avg_rating) if avg_rating else 0
+        doctor.review_count = review_count
+        db.session.commit()
+
+@app.route('/api/reviews', methods=['POST'])
+def add_review():
+    data = request.get_json()
+    try:
+        review = DoctorReview(
+            patient_id=data['patient_id'],
+            doctor_id=data['doctor_id'],
+            rating=data['rating'],
+            comment=data.get('comment', '')
+        )
+        db.session.add(review)
+        db.session.commit()
+
+        # 更新医生平均评分
+        update_doctor_rating(data['doctor_id'])
+
+        return jsonify({"message": "评价添加成功"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
 
 @app.route('/api/aidiagnosis', methods=['POST'])
 def ai_diagnosis():
@@ -356,11 +505,33 @@ def ai_diagnosis():
         app.logger.error(f"处理聊天请求失败: {str(e)}")
         return jsonify({"error": "处理请求时发生错误"}), 500
 
+def update_doctors_ratings():
+    """更新所有医生的平均评分和评论数量"""
+    with app.app_context():
+        doctors = Doctor.query.all()
+        for doctor in doctors:
+            # 计算平均评分
+            avg_rating = db.session.query(
+                db.func.avg(DoctorReview.rating)
+            ).filter(DoctorReview.doctor_id == doctor.doctor_id).scalar()
+            
+            # 计算评论数量
+            review_count = db.session.query(
+                db.func.count(DoctorReview.review_id)
+            ).filter(DoctorReview.doctor_id == doctor.doctor_id).scalar()
+            
+            # 更新医生记录
+            doctor.average_rating = float(avg_rating) if avg_rating else 0
+            doctor.review_count = review_count if review_count else 0
+        
+        db.session.commit()
+        print(f"已更新 {len(doctors)} 位医生的评分数据")
+
 if __name__ == '__main__':
     # 测试deepseek服务
     with app.app_context():  # 添加应用上下文
-        prompt = "你好，医生，我最近感觉胸口疼痛，已经持续了一个星期了，应该怎么办？"
-        prompt += "回答要求如下：首先给出可能疾病（疾病之间用“、”分隔），然后给出建议（建议分点列出），最后直接给出紧急程度（低、中、高）及其备注，三项内容之间用---分割。"
+        # prompt = "你好，医生，我最近感觉胸口疼痛，已经持续了一个星期了，应该怎么办？"
+        # prompt += "回答要求如下：首先给出可能疾病（疾病之间用“、”分隔），然后给出建议（建议分点列出），最后直接给出紧急程度（低、中、高）及其备注，三项内容之间用---分割。"
         """
         可能疾病：心绞痛、胃食管反流、肋软骨炎、胸膜炎、焦虑症  
         ---
@@ -461,5 +632,9 @@ if __name__ == '__main__':
 
         print(structured_response)
         """
+
+    # 应用启动时更新医生评分数据
+    with app.app_context():
+        update_doctors_ratings()
 
     app.run(debug=True)

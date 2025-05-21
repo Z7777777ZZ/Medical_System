@@ -31,15 +31,15 @@
         </div>
 
         <!-- 医生卡片显示区 -->
-        <div style="display: flex;flex-wrap: wrap; justify-content: start;">
+        <div style="display: flex; flex-wrap: wrap; justify-content: start; margin-bottom: 30px;">
 
             <!-- 医生卡片 -->
             <div class="cardBox" v-for="(card, index) in filteredCards" :key="index">
                 <div>
                     <!-- 卡片标题 -->
-                    <div style="font-size: 24px; font-weight: bold;">No. {{ index + 1 }}</div>
+                    <div class="card-title" style="font-size: 24px; font-weight: bold;">No. {{ index + 1 }}</div>
 
-                    <el-divider />
+                    <el-divider style="margin: 15px 0;" />
 
                     <!-- 卡片内容 -->
                     <div style="margin-left: 10px; text-align: start; font-size: 16px;">
@@ -48,8 +48,50 @@
                             <span style="font-weight: bold;">电话：</span>{{ card.phone }}</p>
                         <p style="padding: 2.5px;"><span style="font-weight: bold;">医院：</span>{{ card.hospital }}</p>
                         <p style="padding: 2.5px;"><span style="font-weight: bold;">科室：</span>{{ card.department }}</p>
+
                         <p style="padding: 2.5px;"><span style="font-weight: bold;">专长：</span>{{ card.specialty }}</p>
-                        <p style="padding: 2.5px;"><span style="font-weight: bold;">个人简介：</span>{{ card.bio }}</p>
+                        <!-- <p style="padding: 2.5px;"><span style="font-weight: bold;">个人简介：</span>{{ card.bio }}</p> -->
+
+                        <!-- 添加评分展示 -->
+                        <div style="padding: 2.5px; display: flex; align-items: center;">
+                            <span style="font-weight: bold;">评分：</span>
+                            <el-rate 
+                                v-model="card.average_rating" 
+                                disabled 
+                                show-score 
+                                text-color="#ff9900" 
+                                :score-template="`${card.average_rating.toFixed(1)} 分`"
+                                style="margin-left: 0px;"
+                            />
+                            <!-- <span style="margin-left: 5px; color: #999; font-size: 14px;">
+                                ({{ card.review_count || 0 }}条评价)
+                            </span> -->
+                        </div>
+                    </div>
+
+                    <!-- <el-divider style="margin: 15px 0;" /> -->
+                    <el-divider style="margin-top: 15px; margin-bottom: 10px;" />
+
+                    <!-- 卡片操作 -->
+                    <div style="margin-left: 10px; display: flex; justify-content: space-between;">
+                        <el-button 
+                            type="primary" 
+                            size="small"
+                            @click="showDoctorDetail(card)"
+                        >
+                            <el-icon><View /></el-icon>
+                            详情
+                        </el-button>
+
+                        <!-- 预约按钮 -->
+                        <el-button 
+                            type="success" 
+                            size="small"
+                            @click="bookAppointment(card)"
+                        >
+                            <el-icon><Calendar /></el-icon>
+                            预约
+                        </el-button>
                     </div>
 
                     <!-- <el-divider /> -->
@@ -72,18 +114,132 @@
             </el-button> -->
 
         </div>
+
+        <!-- 医生详情对话框 -->
+        <el-dialog v-model="detailDialogVisible" title="医生详情" width="50%">
+            <div v-if="selectedDoctor">
+                <div style="display: flex; margin-bottom: 20px;">
+                    <div style="flex: 1;">
+                        <h3>{{ selectedDoctor.name }}</h3>
+                        <p><strong>医院:</strong> {{ selectedDoctor.hospital }}</p>
+                        <p><strong>科室:</strong> {{ selectedDoctor.department }}</p>
+                        <p><strong>专长:</strong> {{ selectedDoctor.specialty }}</p>
+                        <p><strong>电话:</strong> {{ selectedDoctor.phone }}</p>
+                        
+                        <!-- 评分展示 -->
+                        <div style="margin-top: 10px;">
+                            <el-rate 
+                                v-model="selectedDoctor.average_rating" 
+                                disabled 
+                                show-score 
+                                text-color="#ff9900" 
+                                score-template="{value} 分"
+                            />
+                            <span style="margin-left: 10px; color: #999;">
+                                ({{ selectedDoctor.review_count || 0 }}条评价)
+                            </span>
+                        </div>
+                    </div>
+                    <div style="flex: 1;">
+                        <p><strong>简介:</strong></p>
+                        <p>{{ selectedDoctor.bio || '暂无详细介绍' }}</p>
+                    </div>
+                </div>
+                
+                <!-- 评价区域 -->
+                <el-tabs type="border-card">
+                    <el-tab-pane label="患者评价">
+                        <div v-if="doctorReviews.length > 0">
+                            <div v-for="review in doctorReviews" :key="review.review_id" style="margin-bottom: 15px; padding: 10px; border-bottom: 1px solid #eee;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="font-weight: bold;">{{ review.patient_name }}</span>
+                                    <span style="color: #999;">{{ review.review_date }}</span>
+                                </div>
+                                <el-rate v-model="review.rating" disabled style="margin: 5px 0;"></el-rate>
+                                <p>{{ review.comment }}</p>
+                            </div>
+                        </div>
+                        <div v-else style="text-align: center; color: #999; padding: 20px;">
+                            暂无患者评价
+                        </div>
+                    </el-tab-pane>
+                    
+                    <el-tab-pane label="添加评价">
+                        <el-form :model="reviewForm" label-width="80px" style="margin-top: 20px;">
+                            <el-form-item label="评分" required>
+                                <el-rate v-model="reviewForm.rating" show-text :texts="['很差', '差', '一般', '好', '很好']"></el-rate>
+                            </el-form-item>
+                            <el-form-item label="评价内容">
+                                <el-input
+                                    v-model="reviewForm.comment"
+                                    type="textarea"
+                                    :rows="4"
+                                    placeholder="请写下您的评价..."
+                                ></el-input>
+                            </el-form-item>
+                            <el-form-item>
+                                <el-button type="primary" @click="submitReview">提交评价</el-button>
+                            </el-form-item>
+                        </el-form>
+                    </el-tab-pane>
+                </el-tabs>
+            </div>
+        </el-dialog>
+
+        <!-- 新增预约对话框 -->
+        <el-dialog v-model="appointmentDialogVisible" title="预约医生" width="30%" :destroy-on-close="true">
+            <div v-if="appointment_selectedDoctor">
+                <p>您正在预约: <strong>{{ appointment_selectedDoctor.name }}</strong></p>
+                <p>科室: {{ appointment_selectedDoctor.department }}</p>
+                <p>医院: {{ appointment_selectedDoctor.hospital }}</p>
+                
+                <el-form :model="appointmentForm" label-width="80px" style="margin-top: 20px;">
+                    <el-form-item label="预约时间">
+                        <el-date-picker
+                            v-model="appointmentForm.date"
+                            type="date"
+                            placeholder="选择日期"
+                            style="width: 100%"
+                        />
+                    </el-form-item>
+                    <el-form-item label="时间段">
+                        <el-select v-model="appointmentForm.timeSlot" placeholder="选择时间段" style="width: 100%">
+                            <el-option label="上午 9:00-11:00" value="morning" />
+                            <el-option label="下午 2:00-4:00" value="afternoon" />
+                            <el-option label="晚上 6:00-8:00" value="evening" />
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item label="症状描述">
+                        <el-input
+                            v-model="appointmentForm.symptoms"
+                            type="textarea"
+                            :rows="3"
+                            placeholder="请描述您的症状"
+                        />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="appointmentDialogVisible = false">取消</el-button>
+                    <el-button type="primary" @click="confirmAppointment">确认预约</el-button>
+                </span>
+            </template>
+        </el-dialog>
     </el-scrollbar>
 </template>
 
 <script>
-import { Search } from '@element-plus/icons-vue'
+import { Search, View, Calendar } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+
 export default {
     name: 'doctor-search',
-//   components: {
-
-//   },
+    components: {
+        View,
+        Calendar
+    },
     data() {
         return {
             toSearch: '',
@@ -193,6 +349,24 @@ export default {
             selectedDepartment: null,
             hospitals: [],
             departments: [],
+
+            // 医生详情相关
+            detailDialogVisible: false,
+            selectedDoctor: null,
+            doctorReviews: [],
+            reviewForm: {
+                rating: 5,
+                comment: ''
+            },
+
+            // 预约相关数据
+            appointmentDialogVisible: false,
+            appointment_selectedDoctor: null,
+            appointmentForm: {
+                date: '',
+                timeSlot: '',
+                symptoms: ''
+            },
         }
     },
     async created() {
@@ -269,6 +443,11 @@ export default {
                 const response = await axios.get('/doctors/search', { params });
 
                 this.filteredCards = response.data;
+                // this.filteredCards = response.data.map(doctor => ({
+                //     ...doctor,
+                //     average_rating: doctor.average_rating || 0,
+                //     review_count: doctor.review_count || 0
+                // }));
 
                 if (this.filteredCards.length === 0) {
                     ElMessage.warning('没有找到匹配的医生');
@@ -279,6 +458,104 @@ export default {
             } finally {
                 this.loading = false;
             }
+        },
+
+        // 显示医生详情
+        async showDoctorDetail(doctor) {
+            this.selectedDoctor = doctor;
+            try {
+                // 重新获取医生详情数据（包括最新评分和评论数量）
+                const doctorResponse = await axios.get(`/doctors/${doctor.doctor_id}`);
+                this.selectedDoctor = doctorResponse.data;
+
+                // 获取医生评价
+                const response = await axios.get(`/doctors/${doctor.doctor_id}/reviews`);
+                this.doctorReviews = response.data;
+                
+                // 重置评价表单
+                this.reviewForm = {
+                    rating: 5,
+                    comment: ''
+                };
+                
+                this.detailDialogVisible = true;
+            } catch (error) {
+                console.error('获取医生评价失败:', error);
+                ElMessage.error('获取医生详情失败');
+            }
+        },
+        
+        // 提交评价
+        async submitReview() {
+            if (!this.reviewForm.rating) {
+                ElMessage.warning('请选择评分');
+                return;
+            }
+            
+            try {
+                await axios.post('/reviews', {
+                    doctor_id: this.selectedDoctor.doctor_id,
+                    patient_id: 1, // 这里应该是当前登录患者的ID，暂时用1代替
+                    rating: this.reviewForm.rating,
+                    comment: this.reviewForm.comment
+                });
+                
+                ElMessage.success('评价提交成功');
+                // 刷新医生列表
+                await this.searchDoctors();
+
+                // // 重新获取医生详情数据（包括最新评分和评论数量）
+                // const doctorResponse = await axios.get(`/doctors/${this.selectedDoctor.doctor_id}`);
+                // this.selectedDoctor = doctorResponse.data;
+                
+                // // 重新获取评论列表
+                // const reviewsResponse = await axios.get(`/doctors/${this.selectedDoctor.doctor_id}/reviews`);
+                // this.doctorReviews = reviewsResponse.data;
+                
+                // // 重置评价表单
+                // this.reviewForm = {
+                //     rating: 5,
+                //     comment: ''
+                // };
+
+                // 刷新评价列表
+                await this.showDoctorDetail(this.selectedDoctor);
+            } catch (error) {
+                console.error('提交评价失败:', error);
+                ElMessage.error('提交评价失败');
+            }
+        },
+
+        // 预约医生
+        bookAppointment(doctor) {
+            this.appointment_selectedDoctor = doctor;
+            this.appointmentForm = {
+                date: '',
+                timeSlot: '',
+                symptoms: ''
+            };
+            this.appointmentDialogVisible = true;
+        },
+        
+        // 确认预约
+        confirmAppointment() {
+            if (!this.appointmentForm.date) {
+                ElMessage.warning('请选择预约日期');
+                return;
+            }
+            if (!this.appointmentForm.timeSlot) {
+                ElMessage.warning('请选择时间段');
+                return;
+            }
+            
+            // 这里应该调用预约API
+            console.log('预约信息:', {
+                doctor: this.appointment_selectedDoctor,
+                appointment: this.appointmentForm
+            });
+            
+            ElMessage.success(`已成功预约${this.appointment_selectedDoctor.name}医生`);
+            this.appointmentDialogVisible = false;
         },
     },
 }
@@ -296,5 +573,14 @@ export default {
     padding: 7.5px;
     padding-right: 10px;
     padding-top: 15px;
+}
+
+.cardBox:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.el-button {
+    margin-top: 10px;
 }
 </style>

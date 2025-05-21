@@ -78,26 +78,34 @@
                         <el-button 
                             type="primary" 
                             size="small"
+                            @click.stop="viewDoctorDetail(doctor)"
+                        >
+                            <el-icon><View /></el-icon>
+                            详情
+                        </el-button>
+                        <el-button 
+                            type="success" 
+                            size="small"
                             @click.stop="bookAppointment(doctor)"
                         >
                             <el-icon><Calendar /></el-icon>
                             预约
                         </el-button>
-                        <el-button 
+                        <!-- <el-button 
                             type="info" 
                             size="small"
                             @click.stop="viewDoctorDetail(doctor)"
                         >
                             <el-icon><View /></el-icon>
                             详情
-                        </el-button>
+                        </el-button> -->
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- 预约对话框 -->
-        <el-dialog v-model="appointmentDialogVisible" title="预约医生" width="30%">
+        <el-dialog v-model="appointmentDialogVisible" title="预约医生" width="30%" :destroy-on-close="true">
             <div v-if="selectedDoctor">
                 <p>您正在预约: <strong>{{ selectedDoctor.name }}</strong></p>
                 <p>科室: {{ selectedDoctor.department }}</p>
@@ -138,7 +146,7 @@
         </el-dialog>
 
         <!-- 医生详情对话框 -->
-        <el-dialog v-model="detailDialogVisible" title="医生详情" width="40%">
+        <el-dialog v-model="detailDialogVisible" title="医生详情" width="40%" :destroy-on-close="true">
             <div v-if="selectedDoctor">
                 <div style="display: flex; margin-bottom: 20px;">
                     <div style="flex: 1;">
@@ -314,12 +322,16 @@ export default {
         // 预约医生
         bookAppointment(doctor) {
             this.selectedDoctor = doctor;
+            // this.selectedDoctor = { ...doctor }; // 使用对象展开避免引用问题
             this.appointmentForm = {
                 date: '',
                 timeSlot: '',
                 symptoms: this.symptomDescription
             };
             this.appointmentDialogVisible = true;
+            // this.$nextTick(() => {
+            //     this.appointmentDialogVisible = true;
+            // });
         },
         
         // 确认预约
