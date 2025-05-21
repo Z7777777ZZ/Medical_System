@@ -14,6 +14,7 @@ def search_doctors_route():
     hospital_name = request.args.get('hospital')
     department_name = request.args.get('department')
     sort_by = request.args.get('sort_by', 'default')  # 新增排序参数: rating, review_count
+    sort_order = request.args.get('sort_order', 'asc')  # 新增排序顺序参数: asc, desc
     print(hospital_name, department_name)
     
     # if not search_term:
@@ -46,12 +47,29 @@ def search_doctors_route():
         )
 
     # 添加排序逻辑
+    # if sort_by == 'rating':
+    #     query = query.order_by(Doctor.average_rating.desc())
+    # elif sort_by == 'review_count':
+    #     query = query.order_by(Doctor.review_count.desc())
+    # else:
+    #     query = query.order_by(Doctor.doctor_id.asc())
+
+    # 修改排序逻辑
     if sort_by == 'rating':
-        query = query.order_by(Doctor.average_rating.desc())
+        if sort_order == 'asc':
+            query = query.order_by(Doctor.average_rating.asc())
+        else:
+            query = query.order_by(Doctor.average_rating.desc())
     elif sort_by == 'review_count':
-        query = query.order_by(Doctor.review_count.desc())
+        if sort_order == 'asc':
+            query = query.order_by(Doctor.review_count.asc())
+        else:
+            query = query.order_by(Doctor.review_count.desc())
     else:
-        query = query.order_by(Doctor.doctor_id.asc())
+        if sort_order == 'asc':
+            query = query.order_by(Doctor.doctor_id.asc())
+        else:
+            query = query.order_by(Doctor.doctor_id.desc())
 
     doctors = query.all()
     # return jsonify([doctor.to_dict() for doctor in doctors])

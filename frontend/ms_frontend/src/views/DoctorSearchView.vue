@@ -17,8 +17,20 @@
                 <el-option v-for="dept in departments" :key="dept.department_id" 
                     :label="dept.name" :value="dept.name" />
             </el-select>
+
+            <!-- 添加排序下拉框 -->
+            <el-select v-model="sortBy" placeholder="排序方式" style="width: 150px; margin-left: 10px;">
+                <el-option label="默认排序" value="default" />
+                <el-option label="按评分排序" value="rating" />
+                <el-option label="按评价数排序" value="review_count" />
+            </el-select>
+
+            <el-select v-model="sortOrder" placeholder="排序顺序" style="width: 120px; margin-left: 10px;">
+                <el-option label="升序" value="asc" />
+                <el-option label="降序" value="desc" />
+            </el-select>
             
-            <el-button style="margin-left: 10px;" type="primary" @click="searchDoctors" :loading="loading">查询</el-button>
+            <el-button style="margin-left: 10px; margin-top: 0px;" type="primary" @click="searchDoctors" :loading="loading">查询</el-button>
 
             <!-- <el-select v-model="queryCond.sortBy" size="middle" style="width: 12.5vw; margin-left: 30px;">
                 <el-option v-for="sortBy in sortBys" :key="sortBy.value" :label="sortBy.label" :value="sortBy.value" />
@@ -357,6 +369,10 @@ export default {
             hospitals: [],
             departments: [],
 
+            // 排序相关
+            sortBy: 'default', // 默认排序（医生ID），default/rating/review_count
+            sortOrder: 'asc', // 默认升序，desc/asc
+
             // 医生详情相关
             detailDialogVisible: false,
             selectedDoctor: null,
@@ -446,6 +462,13 @@ export default {
                 if (this.selectedDepartment) {
                     params.department = this.selectedDepartment;
                 }
+
+                // 添加排序参数
+                if (this.sortBy !== 'default') {
+                    params.sort_by = this.sortBy;
+                    // params.sort_order = this.sortOrder;
+                }
+                params.sort_order = this.sortOrder;
 
                 const response = await axios.get('/doctors/search', { params });
 
