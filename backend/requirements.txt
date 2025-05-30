@@ -1,3 +1,14 @@
+SQLAlchemy
+PyMySQL
+flask-cors
+flask-migrate
+flask-jwt-extended
+flask-sqlalchemy
+flask-cors
+pymysql
+Flask-Migrate
+flask
+
 Flask==2.0.1
 Flask-SQLAlchemy==2.5.1
 Flask-Migrate==3.1.0

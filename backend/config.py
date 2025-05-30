@@ -1,23 +1,27 @@
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
-# 加载.env文件中的环境变量
 load_dotenv()
 
 class Config:
-    # 数据库配置
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-secret-key'
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+    JWT_TOKEN_LOCATION = ['headers', 'cookies']
+    JWT_COOKIE_SECURE = True
+    JWT_COOKIE_CSRF_PROTECT = True
+    DEBUG = True
+
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'mysql+pymysql://root@localhost/medical_system'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
-    # JWT配置
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-secret-key'
-    JWT_ACCESS_TOKEN_EXPIRES = 3600  # 1小时
-    
-    # 应用配置
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
-    DEBUG = True
-    
-    # Flask-RestX配置
+
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 5,
+        'max_overflow': 10,
+        'pool_recycle': 3600
+    }
+
     RESTX_MASK_SWAGGER = False  # 禁用Swagger UI中的掩码功能
     RESTX_MASK_HEADER = None    # 移除X-Fields头信息
       #SQL连接池 - 优化配置，解决"Too many connections"错误
@@ -27,5 +31,11 @@ class Config:
     SQLALCHEMY_POOL_RECYCLE = 60       # 连接回收时间(秒) - 在空闲60秒后回收
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,         # 连接前ping测试连接是否可用
-        'pool_use_lifo': True          # 使用LIFO策略，提高连接复用率
+        'pool_use_lifo': True,          # 使用LIFO策略，提高连接复用率
+        'pool_size': 5,
+        'max_overflow': 10,
+        'pool_recycle': 3600
     }
+
+    # CORS_ORIGINS = ["http://localhost:5173"]  # 允许的前端地址
+    CORS_SUPPORTS_CREDENTIALS = True          # 允许携带Cookie

@@ -1,3 +1,12 @@
+
+from backend.config import Config
+from backend.extensions import db, jwt, cors, migrate
+from backend.user_service.api.doctor import bp as doctor_bp
+from backend.user_service.api.patient import bp as patient_bp
+from backend.user_service.api.hospital import bp as hospital_bp
+from backend.user_service.api.department import bp as department_bp
+from backend.user_service.utils import ApiResponse
+
 from flask import Flask, jsonify, _request_ctx_stack, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -72,6 +81,7 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     CORS(app)
     jwt.init_app(app)
+    cors.init_app(app, supports_credentials=True)
     api.init_app(app)    # Register blueprints and namespaces
     from call_number.api import bp as call_number_bp
     app.register_blueprint(call_number_bp, url_prefix='/api/call-number')
@@ -81,6 +91,11 @@ def create_app(config_class=Config):
 
     from users.api import bp as users_bp
     app.register_blueprint(users_bp, url_prefix='/api/users')
+
+    app.register_blueprint(doctor_bp)
+    app.register_blueprint(patient_bp)
+    app.register_blueprint(hospital_bp)
+    app.register_blueprint(department_bp)
 
     # Import and register namespaces
     from diagnosis.api.prescription import api as prescription_ns
@@ -142,6 +157,8 @@ def create_app(config_class=Config):
 
     return app
 
+
+
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True)
