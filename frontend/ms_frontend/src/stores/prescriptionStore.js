@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
-const BASE_API_URL = 'http://127.0.0.1:5000'
 export const usePrescriptionStore = defineStore('prescription', {
   state: () => ({
     // 当前正在编辑的处方
@@ -28,9 +27,14 @@ export const usePrescriptionStore = defineStore('prescription', {
       try {
         this.loading = true
         this.error = null
+        const token = localStorage.getItem('token');
         
         // 调用实际 API 获取药物列表
-        const response = await axios.get(`${BASE_API_URL}/api/diagnosis/prescription/medicines`)
+        const response = await axios.get('/diagnosis/prescription/medicines', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
         this.availableMedicines = response.data || []
         
         this.loading = false
@@ -113,25 +117,36 @@ export const usePrescriptionStore = defineStore('prescription', {
       try {
         this.loading = true
         this.error = null
+        const token = localStorage.getItem('token');
         
         // 判断是创建新处方还是更新已有处方
         let response
         if (this.currentPrescription.id) {
           // 更新已有处方
           response = await axios.put(
-            `${BASE_API_URL}/api/diagnosis/prescription/${this.currentPrescription.id}`, 
+            `/diagnosis/prescription/${this.currentPrescription.id}`, 
             {
               ...this.currentPrescription,
               status: 'completed'
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
             }
           )
         } else {
           // 创建新处方
           response = await axios.post(
-            `${BASE_API_URL}/api/diagnosis/prescription`, 
+            '/diagnosis/prescription', 
             {
               ...this.currentPrescription,
               status: 'completed'
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
             }
           )
         }
@@ -155,9 +170,14 @@ export const usePrescriptionStore = defineStore('prescription', {
       try {
         this.loading = true
         this.error = null
+        const token = localStorage.getItem('token');
         
         // 调用实际 API 获取患者处方列表
-        const response = await axios.get(`${BASE_API_URL}/api/diagnosis/prescription?patientId=${patientId}`)
+        const response = await axios.get(`/diagnosis/prescription?patientId=${patientId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
         this.patientPrescriptions = response.data || []
         
         this.loading = false
@@ -175,9 +195,14 @@ export const usePrescriptionStore = defineStore('prescription', {
       try {
         this.loading = true
         this.error = null
+        const token = localStorage.getItem('token');
         
         // 调用实际 API 获取处方详情
-        const response = await axios.get(`${BASE_API_URL}/api/diagnosis/prescription/${prescriptionId}`)
+        const response = await axios.get(`/diagnosis/prescription/${prescriptionId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
         
         if (response.data) {
           this.currentPrescription = response.data

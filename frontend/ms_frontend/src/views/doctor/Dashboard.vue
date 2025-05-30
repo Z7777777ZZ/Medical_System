@@ -181,11 +181,17 @@ import { useQueueStore } from '../../stores/queueStore'
 import { usePrescriptionStore } from '../../stores/prescriptionStore'
 import { ElMessage } from 'element-plus'
 import { UserFilled } from '@element-plus/icons-vue'
+import axios from 'axios' // 引入 axios
 
 export default {
   name: 'DoctorDashboard',
+  components: {
+    UserFilled
+  },
   setup() {
     const router = useRouter()
+    const token = localStorage.getItem('token'); // 获取 token
+
     /* eslint-disable no-unused-vars */
     const queueStore = useQueueStore()
     const prescriptionStore = usePrescriptionStore()
@@ -272,6 +278,74 @@ export default {
       }
     ])
     
+    // 获取医生信息
+    const fetchDoctorInfo = async () => {
+      try {
+        const response = await axios.get('/doctor/info', { // 修改API路径
+          headers: {
+            'Authorization': `Bearer ${token}` // 添加 Authorization header
+          }
+        })
+        if (response.data) {
+          doctorInfo.value = response.data
+        }
+      } catch (error) {
+        console.error('获取医生信息失败:', error)
+        ElMessage.error('获取医生信息失败')
+      }
+    }
+
+    // 获取工作统计数据
+    const fetchStats = async () => {
+      try {
+        const response = await axios.get('/doctor/stats', { // 修改API路径
+          headers: {
+            'Authorization': `Bearer ${token}` // 添加 Authorization header
+          }
+        })
+        if (response.data) {
+          stats.value = response.data
+        }
+      } catch (error) {
+        console.error('获取统计数据失败:', error)
+        ElMessage.error('获取统计数据失败')
+      }
+    }
+
+    // 获取通知列表
+    const fetchNotifications = async () => {
+      try {
+        const response = await axios.get('/doctor/notifications', { // 修改API路径
+          headers: {
+            'Authorization': `Bearer ${token}` // 添加 Authorization header
+          }
+        })
+        if (response.data) {
+          notifications.value = response.data
+        }
+      } catch (error) {
+        console.error('获取通知列表失败:', error)
+        ElMessage.error('获取通知列表失败')
+      }
+    }
+
+    // 获取今日工作摘要
+    const fetchWorkSummary = async () => {
+      try {
+        const response = await axios.get('/doctor/work-summary', { // 修改API路径
+          headers: {
+            'Authorization': `Bearer ${token}` // 添加 Authorization header
+          }
+        })
+        if (response.data) {
+          workSummary.value = response.data
+        }
+      } catch (error) {
+        console.error('获取工作摘要失败:', error)
+        ElMessage.error('获取工作摘要失败')
+      }
+    }
+
     // 刷新通知
     // TODO 获取 notifications 的值
     const refreshNotifications = () => {
@@ -372,6 +446,10 @@ export default {
     onMounted(() => {
       // 实际项目中，应该从API获取数据
       // 这里的信息和我们组都没啥关系
+      fetchDoctorInfo()
+      fetchStats()
+      fetchNotifications()
+      fetchWorkSummary()
     })
     
     return {

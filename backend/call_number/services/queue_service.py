@@ -199,6 +199,7 @@ class QueueService:
         """获取当前正在叫号的患者信息"""
         # 查询当前正在叫号的患者
         from users.models.patient import Patient  # 引入患者模型
+        from flask_jwt_extended import get_jwt_identity # 确保导入
         
         current_queue = Queue.query.filter_by(status='calling').order_by(Queue.created_at).first()
         if not current_queue:
@@ -221,9 +222,12 @@ class QueueService:
         exam_result = MedicalExam.query.filter_by(patient_id=patient.id).order_by(MedicalExam.exam_time.desc()).first()
         
         # 判断是否为当前用户
-        from flask_jwt_extended import get_jwt_identity
-        current_user_id = get_jwt_identity() if get_jwt_identity() else 0
-        is_current_user = (current_user_id == patient.id)
+        current_user_identity = get_jwt_identity() # 这会返回 {'id': user_id, 'type': user_type}
+        is_current_user = False
+        if current_user_identity and current_user_identity.get('type') == 'patient': # 确保是患者类型的token
+            # 假设 patient.patient_id 是数据库中的患者ID字段
+            is_current_user = (str(current_user_identity.get('id')) == str(patient.patient_id))
+
         return {
         'id': patient.patient_id,
         'name': patient.name,
@@ -239,11 +243,14 @@ class QueueService:
     def get_queue_list():
         """获取当前队列列表"""
         from users.models.patient import Patient  # 引入患者模型
+        from flask_jwt_extended import get_jwt_identity # 确保导入
         
         # 获取等待中的队列
         queues = Queue.query.filter_by(status='waiting').order_by(Queue.created_at).all()
         patients = []
         
+        current_user_identity = get_jwt_identity() # 这会返回 {'id': user_id, 'type': user_type}
+
         for queue in queues:
             # 获取患者基本信息
             patient = Patient.query.get(queue.patient_id)
@@ -257,17 +264,12 @@ class QueueService:
                 delta = datetime.datetime.utcnow() - queue.created_at
                 waiting_time = int(delta.total_seconds() / 60)
                 
-            # 判断是否为当前用户 
-            # 为了避免耦合，先TODO
-            #输出一个warning，后续可以考虑使用JWT来获取当前用户ID
-            
-
-            
-            
-            # from flask_jwt_extended import get_jwt_identity
-            # current_user_id = get_jwt_identity() if get_jwt_identity() else 0
-            # is_current_user = (current_user_id == patient.id)
+            # 判断是否为当前用户
             is_current_user = False
+            if current_user_identity and current_user_identity.get('type') == 'patient': # 确保是患者类型的token
+                 # 假设 patient.patient_id 是数据库中的患者ID字段
+                is_current_user = (str(current_user_identity.get('id')) == str(patient.patient_id))
+
             patients.append({
             'id': patient.patient_id,
             'name': patient.name,

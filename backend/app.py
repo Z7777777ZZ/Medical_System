@@ -20,20 +20,25 @@ db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 
-# 创建一个自定义的jwt_required装饰器，它总是允许访问
-def jwt_always_pass(optional=False):
-    def wrapper(fn):
-        @wraps(fn)
-        def decorator(*args, **kwargs):
-            # 设置一个默认的身份信息
-            _request_ctx_stack.top.jwt = {"sub": 1, "role": "doctor"}
-            _request_ctx_stack.top.jwt_user = {'id': 1, 'role': 'doctor'}
-            return fn(*args, **kwargs)
-        return decorator
-    return wrapper
-
-import flask_jwt_extended
-flask_jwt_extended.jwt_required = jwt_always_pass
+# 【重要】以下 jwt_always_pass 装饰器和对 flask_jwt_extended.jwt_required 的覆盖
+# 会导致所有JWT保护的路由绕过实际的Token认证。
+# 这在开发阶段可能用于简化测试，但在生产环境中必须移除或注释掉，
+# 以确保JWT认证机制正常工作。
+#
+# # 创建一个自定义的jwt_required装饰器，它总是允许访问
+# def jwt_always_pass(optional=False):
+#     def wrapper(fn):
+#         @wraps(fn)
+#         def decorator(*args, **kwargs):
+#             # 设置一个默认的身份信息
+#             _request_ctx_stack.top.jwt = {"sub": 1, "role": "doctor"}
+#             _request_ctx_stack.top.jwt_user = {'id': 1, 'role': 'doctor'}
+#             return fn(*args, **kwargs)
+#         return decorator
+#     return wrapper
+#
+# import flask_jwt_extended
+# flask_jwt_extended.jwt_required = jwt_always_pass
 
 authorizations = {
     'Bearer': {
@@ -55,6 +60,12 @@ api = Api(
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    # 确保 JWT_SECRET_KEY 已在配置中设置 (例如, 在 config.py 或环境变量中)
+    # 这是 JWT 安全性的核心，例如:
+    # app.config['JWT_SECRET_KEY'] = 'your-very-strong-secret-key'
+    # 或者最好从环境变量加载:
+    # app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
 
     # Initialize extensions
     db.init_app(app)
@@ -88,7 +99,10 @@ def create_app(config_class=Config):
     from users.models.doctor import Doctor
     from users.models.patient_detail import PatientDetail    # Create database tables
     with app.app_context():
-        db.create_all()
+        # db.create_all() # 在开发初期或测试时方便创建表结构。
+                        # 对于生产环境和后续的数据库结构变更，
+                        # 强烈建议使用 Flask-Migrate 进行数据库迁移管理。
+        pass # 通常在应用启动时不直接调用 create_all()，除非是首次设置或特定场景
 
     # 数据库连接健康检查中间件
     @app.before_request
