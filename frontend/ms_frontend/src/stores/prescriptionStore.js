@@ -113,40 +113,28 @@ export const usePrescriptionStore = defineStore('prescription', {
     // 保存处方
     async savePrescription() {
       if (!this.currentPrescription) return null
-      
       try {
         this.loading = true
         this.error = null
-        const token = localStorage.getItem('token');
         
         // 判断是创建新处方还是更新已有处方
         let response
         if (this.currentPrescription.id) {
           // 更新已有处方
           response = await axios.put(
-            `/diagnosis/prescription/${this.currentPrescription.id}`, 
+            `/api/diagnosis/prescription/${this.currentPrescription.id}`, 
             {
               ...this.currentPrescription,
               status: 'completed'
-            },
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
             }
           )
         } else {
           // 创建新处方
           response = await axios.post(
-            '/diagnosis/prescription', 
+            '/api/diagnosis/prescription', 
             {
               ...this.currentPrescription,
               status: 'completed'
-            },
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
             }
           )
         }
@@ -159,6 +147,7 @@ export const usePrescriptionStore = defineStore('prescription', {
         return response.data
       } catch (error) {
         this.error = '保存处方失败'
+        console.error('处方:', this.currentPrescription)
         this.loading = false
         console.error('保存处方失败:', error)
         return null

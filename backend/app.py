@@ -1,11 +1,6 @@
 
-from backend.config import Config
-from backend.extensions import db, jwt, cors, migrate
-from backend.user_service.api.doctor import bp as doctor_bp
-from backend.user_service.api.patient import bp as patient_bp
-from backend.user_service.api.hospital import bp as hospital_bp
-from backend.user_service.api.department import bp as department_bp
-from backend.user_service.utils import ApiResponse
+from extensions import db, jwt, cors, migrate
+from user_service.utils import ApiResponse
 
 from flask import Flask, jsonify, _request_ctx_stack, request
 from flask_sqlalchemy import SQLAlchemy
@@ -79,10 +74,13 @@ def create_app(config_class=Config):
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
-    CORS(app)
+    # 设置 CORS，允许跨域请求
+    CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
+                         "allow_headers": ["Content-Type", "Authorization", "Accept"]}})
     jwt.init_app(app)
-    cors.init_app(app, supports_credentials=True)
-    api.init_app(app)    # Register blueprints and namespaces
+    api.init_app(app)    
+    
+    # Register blueprints and namespaces
     from call_number.api import bp as call_number_bp
     app.register_blueprint(call_number_bp, url_prefix='/api/call-number')
 
@@ -92,32 +90,40 @@ def create_app(config_class=Config):
     from users.api import bp as users_bp
     app.register_blueprint(users_bp, url_prefix='/api/users')
 
-    app.register_blueprint(doctor_bp)
-    app.register_blueprint(patient_bp)
-    app.register_blueprint(hospital_bp)
-    app.register_blueprint(department_bp)
+    from user_service.api import bp as user_service_bp
+    app.register_blueprint(user_service_bp, url_prefix='/api/user-service')
 
     # Import and register namespaces
     from diagnosis.api.prescription import api as prescription_ns
     from call_number.api.queue import api as queue_ns
     from users.api.patient import api as patient_ns
     from users.api.health import api as health_ns
+    from user_service.api.doctor import api as doctor_ns
+    from user_service.api.hospital import api as hospital_ns
+    from user_service.api.department import api as department_ns
+    from user_service.api.patient import api as user_service_patient_ns
 
     # 添加命名空间到API
     api.add_namespace(prescription_ns, path='/api/diagnosis/prescription')
     api.add_namespace(queue_ns, path='/api/call-number/queue')
     api.add_namespace(patient_ns, path='/api/users/patients')
-    api.add_namespace(health_ns, path='/api/users/health')# 导入模型以确保它们被创建
+    api.add_namespace(health_ns, path='/api/users/health')
+    api.add_namespace(doctor_ns, path='/api/user-service/doctor')
+    api.add_namespace(hospital_ns, path='/api/user-service/hospital')
+    api.add_namespace(department_ns, path='/api/user-service/department')
+    api.add_namespace(user_service_patient_ns, path='/api/user-service/patient')
+    
+    # 导入模型以确保它们被创建
     from call_number.models.queue import Queue
     from diagnosis.models.prescription import Prescription, Medicine, PrescriptionDetail
     from users.models.patient import Patient
     from users.models.doctor import Doctor
     from users.models.patient_detail import PatientDetail    # Create database tables
-    with app.app_context():
+    # with app.app_context():
         # db.create_all() # 在开发初期或测试时方便创建表结构。
                         # 对于生产环境和后续的数据库结构变更，
                         # 强烈建议使用 Flask-Migrate 进行数据库迁移管理。
-        pass # 通常在应用启动时不直接调用 create_all()，除非是首次设置或特定场景
+        # pass # 通常在应用启动时不直接调用 create_all()，除非是首次设置或特定场景
 
     # 数据库连接健康检查中间件
     @app.before_request

@@ -39,6 +39,12 @@ clinic_info_model = api.model('ClinicInfo', {
     'locationDirections': fields.String(description='位置指引')
 })
 
+# 定义统计信息模型
+stats_model = api.model('QueueStats', {
+    'todayPatients': fields.Integer(description='今日就诊患者数量'),
+    'waitingPatients': fields.Integer(description='当前等待患者数量')
+})
+
 @api.route('/register')
 class RegisterPatient(Resource):
     @api.doc('register_patient')
@@ -116,18 +122,33 @@ class GetClinicInfo(Resource):
 class GetCurrentCalling(Resource):
     @api.doc('get_current_calling')
     @api.marshal_with(patient_model)
+    @api.param('type', '用户类型 (doctor/patient)')
+    @api.param('id', '用户ID')
+    @api.response(403, '无权访问当前叫号信息')
     def get(self):
         """获取当前叫号信息"""
-        calling = QueueService.get_current_calling()
+        # 从请求参数中获取用户类型和ID
+        user_type = request.args.get('type')
+        user_id = request.args.get('id')
+        
+        calling = QueueService.get_current_calling(user_type, user_id)
         return calling
 
 @api.route('/list')
 class GetQueueList(Resource):
     @api.doc('get_queue_list')
     @api.marshal_list_with(patient_model)
+    @api.param('type', '用户类型 (doctor/patient)')
+    @api.param('id', '用户ID')
     def get(self):
         """获取当前队列列表"""
-        queue_list = QueueService.get_queue_list()
+        # 从请求参数中获取用户类型和ID
+        user_type = request.args.get('type')
+        user_id = request.args.get('id')
+        print(f"获取队列列表: 用户类型={user_type}, 用户ID={user_id}")
+        
+        queue_list = QueueService.get_queue_list(user_type, user_id)
+        # print(queue_list)
         return queue_list
 
 @api.route('/refresh/<int:patient_id>')
@@ -141,3 +162,37 @@ class RefreshQueueStatus(Resource):
         if not status:
             api.abort(404, '患者未找到')
         return status
+
+@api.route('/stats')
+class QueueStats(Resource):
+    @api.doc('get_queue_stats', description='获取队列统计信息')
+    @api.marshal_with(stats_model)
+    @api.param('id', '医生ID')
+    def get(self):
+        """获取队列统计信息"""
+        # get doctor id
+        doctor_id = request.args.get('id')
+        stats = QueueService.get_queue_stats(doctor_id)
+        return stats
+
+@api.route('/update-priority')
+class UpdatePriority(Resource):
+    @api.doc('update_priority', description='修改患者优先级并重新加入等待队列')
+    @api.expect(api.model('UpdatePriorityForm', {
+        'patientId': fields.Integer(required=True, description='患者ID'),
+        'doctorId': fields.Integer(required=True, description='医生ID')
+    }))
+    @api.marshal_with(patient_model, code=200)
+    @api.response(404, '患者未找到或状态不符合要求')
+    def post(self):
+        """修改患者优先级并重新加入等待队列"""
+        data = request.get_json()
+        # 验证必要参数
+        if 'patientId' not in data or 'doctorId' not in data:
+            return {'error': '患者ID、医生ID和优先级都是必需的'}, 400
+            
+        patient_id = data.get('patientId')
+        doctor_id = data.get('doctorId')
+        
+        result, status_code = QueueService.update_patient_priority(patient_id, doctor_id)
+        return result, status_code

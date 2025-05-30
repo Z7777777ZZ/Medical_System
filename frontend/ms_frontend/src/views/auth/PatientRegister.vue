@@ -189,7 +189,7 @@ export default {
         
         const { confirmPassword, ...registerData } = registerForm
         
-        const response = await axios.post('/api/patient/register', registerData)
+        const response = await axios.post('/api/user-service/patient/register', registerData)
 
         if (response.data.status === 'success') {
           ElMessage.success('注册成功')

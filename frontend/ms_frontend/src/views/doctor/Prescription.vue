@@ -14,10 +14,10 @@
       <div class="doctor-prescription-view">
         <!-- 顶部操作栏 -->
         <div class="toolbar">
-          <el-button type="primary" @click="createNewPrescription">
+          <!-- <el-button type="primary" @click="createNewPrescription">
             <el-icon><el-icon-plus /></el-icon>
             新建处方
-          </el-button>
+          </el-button> -->
           
           <div class="search-box">
             <el-input
@@ -49,11 +49,11 @@
               <h3>处方列表</h3>
               <el-button-group>
                 <el-button @click="refreshPrescriptions" :loading="loading">
-                  <el-icon><el-icon-refresh /></el-icon>
+                  <!-- <el-icon><el-icon-refresh /></el-icon> -->
                   刷新
                 </el-button>
                 <el-button @click="exportToExcel">
-                  <el-icon><el-icon-document /></el-icon>
+                  <!-- <el-icon><el-icon-document /></el-icon> -->
                   导出
                 </el-button>
               </el-button-group>
@@ -240,8 +240,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { usePrescriptionStore } from '../../stores/prescriptionStore'
 import PrescriptionForm from '../../components/doctor/PrescriptionForm.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-
-const BASE_API_URL = 'http://127.0.0.1:5000'
+import { jwtDecode } from 'jwt-decode'
+import axios from 'axios'
 export default {
   name: 'DoctorPrescription',
   components: {
@@ -250,10 +250,33 @@ export default {
   setup() {
     /* eslint-disable no-unused-vars */
     const router = useRouter()
-    const prescriptionStore = usePrescriptionStore()
-    /* eslint-enable no-unused-vars */
-    
-    const route = useRoute()
+    const token = localStorage.getItem('token'); // 获取 token
+    let doctorId = null;
+
+    // 从 token 中解析出 doctor_id
+    let type = null; // 定义 type 变量，避免使用未声明的变量
+    if (token) {
+      try {
+        const decodedToken = jwtDecode(token);
+        // token 中的 payload 应该包含 identity.id
+        doctorId = decodedToken.sub ? decodedToken.sub.id : decodedToken.id;
+        type = decodedToken.sub ? decodedToken.sub.type : decodedToken.type;
+        console.log('解析后的token数据:', decodedToken);
+        console.log('从 token 解析出的 doctor_id:', doctorId);
+        console.log('从 token 解析出的 type:', type);
+        
+        if (type !== 'doctor') {
+          console.error('Token 中的身份类型不是医生');
+          // 不要直接返回，这会导致后续代码不执行
+          ElMessage.warning('您不是医生身份，某些功能可能受限');
+        }
+      } catch (error) {
+        console.error('解析 token 失败:', error);
+      }
+    } else {
+      // 如果没有 token，可能需要重定向到登录页
+      console.error('未找到 token');
+    }
     
     // 状态
     const loading = ref(false)
@@ -262,13 +285,13 @@ export default {
       {
         id: '',
         patientId: '',
-        patientName: '张三',
-        patientGender: 'male',
-        patientAge: 35,
+        patientName: '',
+        patientGender: '',
+        patientAge: 0,
         doctorId: '',
-        doctorName: '李医生',
-        doctorLicenseNumber: 'MD12345678',
-        department: '内科',
+        doctorName: '',
+        doctorLicenseNumber: '',
+        department: '',
         date: '',
         // diagnosis: '',
         status: '',
@@ -281,9 +304,31 @@ export default {
     const fetchDoctorPrescriptions = async (doctorId) => {
       loading.value = true
       try {
-        const response = await fetch(`${BASE_API_URL}/api/diagnosis/prescription?doctorId=${doctorId}`);
-        const data = await response.json();
-        prescriptions.value = data || [];
+        const response = await axios.get(`/api/diagnosis/prescription?type=doctor&id=${doctorId}`);
+        const data = response.data;
+        console.log('获取到的处方数据:', data);
+        if (data && Array.isArray(data)) {
+          // Map API data to application data structure
+          prescriptions.value = data.map(item => {
+            return {
+              id: item.id || '',
+              patientId: item.patientId || '',
+              doctorId: item.doctorId || '',
+              patientName: '', // Will be populated later
+              patientGender: '',
+              patientAge: 0,
+              doctorName: '',
+              doctorLicenseNumber: '',
+              department: '',
+              date: item.date || '',
+              status: item.status || 'draft',
+              medicines: item.medicines || [],
+              instructions: item.instructions || ''
+            };
+          });
+        }
+        console.log('处理后的处方列表:', prescriptions.value);
+        // TODO 患者名字需要获取！
         // iter all patientId and dockerId to get details
         // prescriptions.value.forEach(prescription => {
           // TODO
@@ -431,12 +476,7 @@ export default {
     // 刷新处方列表
     const refreshPrescriptions = async () => {
       loading.value = true
-      
-      // 模拟API调用
-      setTimeout(() => {
-        loading.value = false
-        ElMessage.success('处方列表已更新')
-      }, 1000)
+      fetchDoctorPrescriptions(doctorId)
     }
     
     // 格式化日期
@@ -486,40 +526,40 @@ export default {
     }
     
     // 创建新处方
-    const createNewPrescription = () => {
-      currentPrescription.value = {
-        patientId: '',
-        patientName: '',
-        patientGender: '',
-        patientAge: '',
-        // diagnosis: '',
-        medicines: [],
-        instructions: '',
-        doctorId: '1',
-        doctorName: '李医生',
-        doctorLicenseNumber: 'MD12345678',
-        department: '内科',
-        date: new Date().toISOString(),
-        status: 'draft'
-      }
+    // const createNewPrescription = () => {
+    //   currentPrescription.value = {
+    //     patientId: '',
+    //     patientName: '',
+    //     patientGender: '',
+    //     patientAge: '',
+    //     // diagnosis: '',
+    //     medicines: [],
+    //     instructions: '',
+    //     doctorId: '1',
+    //     doctorName: '李医生',
+    //     doctorLicenseNumber: 'MD12345678',
+    //     department: '内科',
+    //     date: new Date().toISOString(),
+    //     status: 'draft'
+    //   }
       
-      if (route.query.patientId) {
-        // TODO 实际项目中应该通过API获取患者信息
-        const patientInfo = {
-          id: route.query.patientId,
-          name: '张三',
-          gender: 'male',
-          age: 35
-        }
+    //   if (route.query.patientId) {
+    //     // TODO 实际项目中应该通过API获取患者信息
+    //     const patientInfo = {
+    //       id: route.query.patientId,
+    //       name: '张三',
+    //       gender: 'male',
+    //       age: 35
+    //     }
         
-        currentPrescription.value.patientId = patientInfo.id
-        currentPrescription.value.patientName = patientInfo.name
-        currentPrescription.value.patientGender = patientInfo.gender
-        currentPrescription.value.patientAge = patientInfo.age
-      }
+    //     currentPrescription.value.patientId = patientInfo.id
+    //     currentPrescription.value.patientName = patientInfo.name
+    //     currentPrescription.value.patientGender = patientInfo.gender
+    //     currentPrescription.value.patientAge = patientInfo.age
+    //   }
       
-      prescriptionFormVisible.value = true
-    }
+    //   prescriptionFormVisible.value = true
+    // }
     
     // 编辑处方
     const editPrescription = (prescription) => {
@@ -754,13 +794,7 @@ export default {
     
     // 初始化
     onMounted(() => {
-      refreshPrescriptions()
-      
-      // 如果路由中包含患者信息，则自动创建新处方
-      if (route.query.patientId) {
-        createNewPrescription()
-      }
-      
+      refreshPrescriptions()      
       performSideEffect()
     })
 
@@ -793,7 +827,7 @@ export default {
       getStatusText,
       handleRowClick,
       viewPrescription,
-      createNewPrescription,
+      // createNewPrescription,
       editPrescription,
       confirmCancelPrescription,
       savePrescription,

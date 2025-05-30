@@ -115,11 +115,20 @@ export default {
       try {
         await loginFormRef.value.validate()
         loading.value = true
-        console.log(isDoctor.value?'/api/doctor/login':'/api/patient/login')
-        const response = await axios.post(isDoctor.value?'/api/doctor/login':'/api/patient/login', {
+        // 确保使用正确的 API 路径
+        const loginEndpoint = isDoctor.value ? '/api/user-service/doctor/login' : '/api/user-service/patient/login'
+        console.log('Login endpoint:', loginEndpoint)
+        
+        const response = await axios.post(loginEndpoint, {
           phone: loginForm.phone,
           password: loginForm.password,
           //type: isDoctor.value ? 'doctor' : 'patient'
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+          // 移除 withCredentials: true，因为它可能导致预检请求失败
         })
 
         if (response.data.status === 'success') {

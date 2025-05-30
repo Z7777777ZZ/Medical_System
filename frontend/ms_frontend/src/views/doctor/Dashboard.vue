@@ -36,10 +36,6 @@
                 <div class="stat-value">{{ stats.waitingPatients }}</div>
                 <div class="stat-label">等待接诊</div>
               </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ stats.todayPrescriptions }}</div>
-                <div class="stat-label">今日处方</div>
-              </div>
             </div>
           </div>
         </el-card>
@@ -182,6 +178,7 @@ import { usePrescriptionStore } from '../../stores/prescriptionStore'
 import { ElMessage } from 'element-plus'
 import { UserFilled } from '@element-plus/icons-vue'
 import axios from 'axios' // 引入 axios
+import { jwtDecode } from 'jwt-decode';
 
 export default {
   name: 'DoctorDashboard',
@@ -191,29 +188,52 @@ export default {
   setup() {
     const router = useRouter()
     const token = localStorage.getItem('token'); // 获取 token
+    let doctorId = null;
+
+    // 从 token 中解析出 doctor_id
+    let type = null; // 定义 type 变量，避免使用未声明的变量
+    if (token) {
+      try {
+        const decodedToken = jwtDecode(token);
+        // token 中的 payload 应该包含 identity.id
+        doctorId = decodedToken.sub ? decodedToken.sub.id : decodedToken.id;
+        type = decodedToken.sub ? decodedToken.sub.type : decodedToken.type;
+        console.log('解析后的token数据:', decodedToken);
+        console.log('从 token 解析出的 doctor_id:', doctorId);
+        console.log('从 token 解析出的 type:', type);
+        
+        if (type !== 'doctor') {
+          console.error('Token 中的身份类型不是医生');
+          // 不要直接返回，这会导致后续代码不执行
+          ElMessage.warning('您不是医生身份，某些功能可能受限');
+        }
+      } catch (error) {
+        console.error('解析 token 失败:', error);
+      }
+    } else {
+      // 如果没有 token，可能需要重定向到登录页
+      console.error('未找到 token');
+    }
 
     /* eslint-disable no-unused-vars */
     const queueStore = useQueueStore()
     const prescriptionStore = usePrescriptionStore()
     /* eslint-enable no-unused-vars */
     
-    // 医生信息 
-    // TODO 等待第一组的医生信息调用写好
+    // 医生信息 - 使用 reactive 创建响应式对象
     const doctorInfo = reactive({
-      id: '1',
-      staffId: 'D00123',
-      name: '李医生',
-      department: '内科',
-      title: '主治医师',
-      specialty: '呼吸系统疾病'
+      id: '',
+      staffId: '',
+      name: '',
+      department: '',
+      title: '',
+      specialty: ''
     })
     
     // 统计数据
-    // TODO 这里我没找到 API
     const stats = reactive({
-      todayPatients: 12,
-      waitingPatients: 5,
-      todayPrescriptions: 8
+      todayPatients: 0,
+      waitingPatients: 0
     })
     
     // 当前日期
@@ -242,7 +262,7 @@ export default {
     ])
     
     // 最近患者
-    // TODO 这里我没找到 API，感觉是这些信息都是第一组的活（
+    // TODO 这里我没找到 API，和 patient 相关
     const recentPatients = ref([
       {
         id: 'visit001',
@@ -281,16 +301,47 @@ export default {
     // 获取医生信息
     const fetchDoctorInfo = async () => {
       try {
-        const response = await axios.get('/doctor/info', { // 修改API路径
-          headers: {
-            'Authorization': `Bearer ${token}` // 添加 Authorization header
-          }
-        })
-        if (response.data) {
-          doctorInfo.value = response.data
+        console.log(`请求医生信息的URL: /api/user-service/doctor/${doctorId}/profile`)
+        const response = await axios.get(`/api/user-service/doctor/${doctorId}/profile`)
+        console.log('API响应:', response.data)
+        
+        if (response.data && response.data.status === 'success') {
+          // 确保数据存在，直接检查所有嵌套路径
+          console.log('响应数据结构:', JSON.stringify(response.data, null, 2));
+          
+          const data = response.data.data || {};
+          
+          // 输出具体字段值，帮助调试
+          console.log('医生信息字段值:', {
+            id: doctorId,
+            staffId: data.staff_id, 
+            name: data.name,
+            department: data.department_id,  // 可能需要调整字段名
+            hospital: data.hospital_id,      // 可能需要调整字段名
+            title: data.title,
+            specialty: data.specialty
+          });
+          
+          // 更新响应式对象
+          doctorInfo.id = doctorId;
+          doctorInfo.staffId = data.staff_id || '';
+          doctorInfo.name = data.name || '';
+          doctorInfo.department = data.department_id || ''; // 根据实际API响应调整字段名
+          doctorInfo.title = data.title || '';
+          doctorInfo.specialty = data.specialty || '';
+          
+          console.log('更新后的医生信息对象:', doctorInfo)
+        } else {
+          console.error('医生信息获取失败，响应状态非成功或数据为空')
+          console.error('响应数据:', response.data)
+          ElMessage.error('医生信息获取失败')
         }
       } catch (error) {
         console.error('获取医生信息失败:', error)
+        if (error.response) {
+          console.error('错误响应:', error.response.data)
+          console.error('错误状态码:', error.response.status)
+        }
         ElMessage.error('获取医生信息失败')
       }
     }
@@ -298,13 +349,15 @@ export default {
     // 获取工作统计数据
     const fetchStats = async () => {
       try {
-        const response = await axios.get('/doctor/stats', { // 修改API路径
-          headers: {
-            'Authorization': `Bearer ${token}` // 添加 Authorization header
+        const response = await axios.get('/api/call-number/queue/stats', { 
+          params: {
+            id: doctorId
           }
         })
         if (response.data) {
-          stats.value = response.data
+          console.log('获取统计数据:', response.data)
+          stats.todayPatients = response.data.todayPatients;
+          stats.waitingPatients = response.data.waitingPatients;
         }
       } catch (error) {
         console.error('获取统计数据失败:', error)
@@ -313,16 +366,18 @@ export default {
     }
 
     // 获取通知列表
+    // TODO
     const fetchNotifications = async () => {
       try {
-        const response = await axios.get('/doctor/notifications', { // 修改API路径
-          headers: {
-            'Authorization': `Bearer ${token}` // 添加 Authorization header
-          }
-        })
-        if (response.data) {
-          notifications.value = response.data
-        }
+        // const response = await axios.get('/api/user-service/doctor/notifications', { 
+        //   params: {
+        //     type: 'doctor',
+        //     id: doctorId
+        //   }
+        // })
+        // if (response.data) {
+        //   notifications.value = response.data
+        // }
       } catch (error) {
         console.error('获取通知列表失败:', error)
         ElMessage.error('获取通知列表失败')
@@ -330,16 +385,18 @@ export default {
     }
 
     // 获取今日工作摘要
+    // TODO
     const fetchWorkSummary = async () => {
       try {
-        const response = await axios.get('/doctor/work-summary', { // 修改API路径
-          headers: {
-            'Authorization': `Bearer ${token}` // 添加 Authorization header
-          }
-        })
-        if (response.data) {
-          workSummary.value = response.data
-        }
+        // const response = await axios.get('/api/user-service/doctor/work-summary', { 
+        //   params: {
+        //     type: 'doctor',
+        //     id: doctorId
+        //   }
+        // })
+        // if (response.data) {
+        //   workSummary.value = response.data
+        // }
       } catch (error) {
         console.error('获取工作摘要失败:', error)
         ElMessage.error('获取工作摘要失败')
@@ -354,7 +411,7 @@ export default {
     }
     
     // 标记通知已读/未读
-    // TODO 需要别的组的 API
+    // TODO maybe not
     const markAsRead = (notification) => {
       notification.read = !notification.read
       // 实际项目中应该调用API更新通知状态
@@ -445,7 +502,6 @@ export default {
     // 初始化
     onMounted(() => {
       // 实际项目中，应该从API获取数据
-      // 这里的信息和我们组都没啥关系
       fetchDoctorInfo()
       fetchStats()
       fetchNotifications()

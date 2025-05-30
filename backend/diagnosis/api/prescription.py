@@ -51,7 +51,7 @@ class MedicineList(Resource):
 class MedicineDetail(Resource):
     @api.doc('获取药品详情')
     @api.marshal_with(medicine_model)
-    @jwt_required()
+    # @jwt_required()
     def get(self, medicine_id):
         """获取药品详情"""
         medicine = Medicine.query.get_or_404(medicine_id)
@@ -61,11 +61,10 @@ class MedicineDetail(Resource):
 class PrescriptionList(Resource):
     @api.doc('创建处方')
     @api.expect(prescription_model)
-    @jwt_required()
     def post(self):
         """创建新处方"""
         data = request.json
-        
+        print(f"创建处方: {data}")
         try:
         
             prescription = Prescription(
@@ -87,7 +86,7 @@ class PrescriptionList(Resource):
         for med in data['medicines']:
             detail = PrescriptionDetail(
                 prescription_id=prescription.prescription_id,
-                medicine_id=med['medicineId'],
+                medicine_id=med['id'],
                 quantity=med['quantity'],
                 instructions=med.get('usage', '')
             )
@@ -139,17 +138,22 @@ class PrescriptionList(Resource):
         return result, 201
 
     @api.doc('获取处方列表')
-    @api.param('patientId', '患者ID')
-    @jwt_required()
+    @api.param('id', '医生或者患者ID')
+    @api.param('type', '类型 (doctor/patient)')
     def get(self):
-        """获取处方列表，可按患者ID过滤"""
-        patient_id = request.args.get('patientId')
+        """获取处方列表，可按 id 过滤"""
+        type = request.args.get('type')
+        id = request.args.get('id')
+        print(f"获取处方列表，类型: {type}, ID: {id}")
         query = Prescription.query
         
-        if patient_id:
-            query = query.filter_by(patient_id=patient_id)
+        if type == 'patient' and id:
+            query = query.filter_by(patient_id=id)
+        elif type == 'doctor' and id:
+            query = query.filter_by(doctor_id=id)
         
         prescriptions = query.all()
+        print(f"查询到 {len(prescriptions)} 条处方记录")
         result = []
         
         for p in prescriptions:
@@ -169,6 +173,7 @@ class PrescriptionList(Resource):
             
             p_dict['medicines'] = medicines_list
             result.append(p_dict)
+        print(f"返回 {len(result)} 条处方记录")
         
         return result
 
@@ -204,7 +209,6 @@ class PrescriptionDetailResource(Resource):  # 改名避免与模型类冲突
     
     @api.doc('更新处方')
     @api.expect(prescription_model)
-    @jwt_required()
     def put(self, prescription_id):
         """更新处方信息"""
         prescription = Prescription.query.get_or_404(prescription_id)

@@ -8,11 +8,11 @@
             <div class="card-header">
               <h3>患者候诊队列</h3>
               <div class="header-actions">
-                <el-button type="primary" @click="callNextPatient" :loading="queueStore.loading" :disabled="!queueStore.nextPatient">
+                <el-button type="primary" @click="callNextPatient" :disabled="!queueStore.nextPatient">
                   叫号接诊
                 </el-button>
-                <el-button @click="refreshQueue" :loading="queueStore.loading">
-                  <el-icon><el-icon-refresh /></el-icon>刷新
+                <el-button @click="refreshQueue">
+                  <el-icon><Refresh /></el-icon>刷新
                 </el-button>
                 <el-button type="primary" @click="goToDashboard">返回工作台</el-button>
                 <el-button type="success" @click="goToPrescription">处方管理</el-button>
@@ -29,7 +29,8 @@
                   <el-table-column prop="name" label="患者姓名" />
                   <el-table-column prop="gender" label="性别" width="80">
                     <template #default="scope">
-                      {{ scope.row.gender === 'male' ? '男' : '女' }}
+                      {{ scope.row.gender === 'male' ? '男' : 
+                         (scope.row.gender === 'female' ? '女' : '未知') }}
                     </template>
                   </el-table-column>
                   <el-table-column prop="age" label="年龄" width="80" />
@@ -60,7 +61,8 @@
                   <el-table-column prop="name" label="患者姓名" />
                   <el-table-column prop="gender" label="性别" width="80">
                     <template #default="scope">
-                      {{ scope.row.gender === 'male' ? '男' : '女' }}
+                      {{ scope.row.gender === 'male' ? '男' : 
+                         (scope.row.gender === 'female' ? '女' : '未知') }}
                     </template>
                   </el-table-column>
                   <el-table-column prop="age" label="年龄" width="80" />
@@ -98,15 +100,16 @@
           </template>
           
           <div class="patient-content">
-            <div v-if="currentPatient" class="current-patient-info">
+            <el-empty v-if="!currentPatient" description="暂无接诊患者"></el-empty>
+            <div v-else class="current-patient-info">
               <div class="patient-avatar">
                 <el-avatar :size="80" :icon="UserFilled" />
               </div>
               <div class="patient-details">
-                <h2>{{ currentPatient.name }}</h2>
-                <p><span class="detail-label">性别:</span> {{ currentPatient.gender === 'male' ? '男' : '女' }}</p>
-                <p><span class="detail-label">年龄:</span> {{ currentPatient.age }}岁</p>
-                <p><span class="detail-label">就诊原因:</span> {{ currentPatient.visitReason }}</p>
+                <h2>{{ currentPatient.name || '未知患者' }}</h2>
+                <p v-if="currentPatient.gender"><span class="detail-label">性别:</span> {{ currentPatient.gender === 'male' ? '男' : (currentPatient.gender === 'female' ? '女' : '未知') }}</p>
+                <p v-if="currentPatient.age"><span class="detail-label">年龄:</span> {{ currentPatient.age }}岁</p>
+                <p v-if="currentPatient.visitReason"><span class="detail-label">就诊原因:</span> {{ currentPatient.visitReason }}</p>
                 <p v-if="currentPatient.medicalHistory"><span class="detail-label">病史:</span> {{ currentPatient.medicalHistory }}</p>
               </div>
               
@@ -118,7 +121,6 @@
                 </el-button-group>
               </div>
             </div>
-            <el-empty v-else description="暂无接诊患者"></el-empty>
           </div>
         </el-card>
       </el-col>
@@ -158,9 +160,10 @@
 import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useQueueStore } from '../../stores/queueStore'
 import { usePrescriptionStore } from '../../stores/prescriptionStore'
-import { UserFilled } from '@element-plus/icons-vue'
+import { UserFilled, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { jwtDecode } from 'jwt-decode'
 
 // 异步加载处方表单组件
 const PrescriptionForm = defineAsyncComponent(() => 
@@ -170,10 +173,36 @@ const PrescriptionForm = defineAsyncComponent(() =>
 export default {
   name: 'DoctorQueue',
   components: {
-    PrescriptionForm
+    PrescriptionForm,
+    UserFilled,
+    Refresh
   },
   setup() {
     const router = useRouter()
+    const token = localStorage.getItem('token'); // 获取 token
+    let doctorId = null;
+    let type = null;
+
+    // 从 token 中解析出 doctor_id
+    if (token) {
+      try {
+        const decodedToken = jwtDecode(token);
+        // token 中的 payload 应该包含 identity.id
+        doctorId = decodedToken.sub.id || decodedToken.id;
+        type = decodedToken.sub.type || decodedToken.type;
+        if (type !== 'doctor') {
+          console.error('Token 中的身份类型不是医生');
+          return;
+        }
+        console.log('从 token 解析出的 doctor_id:', doctorId);
+      } catch (error) {
+        console.error('解析 token 失败:', error);
+      }
+    } else {
+      // 如果没有 token，可能需要重定向到登录页
+      console.error('未找到 token');
+    }
+    
     // 存储实例
     const queueStore = useQueueStore()
     const prescriptionStore = usePrescriptionStore()
@@ -192,14 +221,35 @@ export default {
     const finishDialogVisible = ref(false)
     
     // 初始化
-    onMounted(() => {
-      queueStore.fetchQueueData()
+    onMounted(async () => {
+      console.log('组件挂载，准备初始化数据. doctorId:', doctorId)
+      if (doctorId) {
+        try {
+          // 使用初始化数据方法，同时获取队列和当前患者
+          await queueStore.initData('doctor', doctorId)
+          console.log('初始化数据完成')
+        } catch (error) {
+          console.error('初始化数据失败:', error)
+          ElMessage.error('数据加载失败，请刷新页面重试')
+        }
+      } else {
+        console.error('没有有效的医生ID，无法加载数据')
+        ElMessage.warning('请先登录')
+      }
     })
     
     // 刷新队列
     const refreshQueue = async () => {
       console.log('Refreshing queue data...')
-      await queueStore.fetchQueueData()
+      try {
+        await queueStore.fetchQueueData('doctor', doctorId)
+        // 同时刷新当前患者信息
+        // await queueStore.fetchCurrentPatient('doctor', doctorId)
+        ElMessage.success('刷新成功')
+      } catch (error) {
+        console.error('刷新队列失败:', error)
+        ElMessage.error('刷新失败，请重试')
+      }
     }
     
     // 叫下一个患者
@@ -209,15 +259,30 @@ export default {
         return
       }
       console.log('正在叫号...')
-      await queueStore.callNextPatient('1') // 这里应当从登录用户信息中获取医生ID
+      try {
+        await queueStore.callNextPatient(doctorId) // 使用从token解析出的医生ID
+        ElMessage.success('叫号成功')
+        // 叫号成功后刷新队列
+        await refreshQueue()
+      } catch (error) {
+        console.error('叫号失败:', error)
+        ElMessage.error('叫号失败，请重试')
+      }
     }
     
     // 叫特定患者
     const callSpecificPatient = async (patient) => {
-      // TODO: 实现叫特定患者的接口
-      ElMessage.info(`叫号患者: ${patient.name}`)
-      // 暂时使用通用叫号
-      await queueStore.callNextPatient('1')
+      try {
+        ElMessage.info(`正在叫号患者: ${patient.name}`)
+        // 使用患者ID调用特定患者
+        await queueStore.callSpecificPatient(doctorId, patient.id)
+        ElMessage.success(`成功叫号患者: ${patient.name}`)
+        // 刷新队列
+        await refreshQueue()
+      } catch (error) {
+        console.error('叫号失败:', error)
+        ElMessage.error('叫号失败，请重试')
+      }
     }
     
     // 格式化等待时间
@@ -245,7 +310,7 @@ export default {
       
       prescriptionStore.createNewPrescription(
         currentPatient.value.id,
-        '1' // TODO 这里应当从登录用户信息中获取医生ID
+        doctorId // 使用从token解析出的医生ID
       )
       prescriptionDialogVisible.value = true
     }
@@ -280,9 +345,9 @@ export default {
       }
       
       try {
-        await queueStore.returnToQueueAfterExam(currentPatient.value.id)
+        // await queueStore.returnToQueueAfterExam(currentPatient.value.id, doctorId)
         examDialogVisible.value = false
-        ElMessage.success('患者已去检查，完成后将加入优先队列')
+        // ElMessage.success('患者已去检查，完成后将加入优先队列')
         // 清除当前患者
         queueStore.currentPatient = null
       } catch (error) {

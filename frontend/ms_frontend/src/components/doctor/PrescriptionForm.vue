@@ -78,7 +78,7 @@
               <el-input
                 v-model="prescriptionStore.currentPrescription.instructions"
                 type="textarea"
-                rows="4"
+                :rows="4"
                 placeholder="请输入处方总体用药说明和注意事项"
                 @change="updateInstructions"
               />

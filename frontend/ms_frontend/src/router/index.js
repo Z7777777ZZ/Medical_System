@@ -6,16 +6,13 @@ import DoctorQueue from '../views/doctor/Queue.vue'
 import DoctorPrescription from '../views/doctor/Prescription.vue'
 
 // 患者端页面
-import PatientDashboard from '../views/patient/Dashboard.vue'
-import PatientQueue from '../views/patient/Queue.vue'
-import PatientPrescription from '../views/patient/Prescription.vue'
 import component from 'element-plus/es/components/tree-select/src/tree-select-option.mjs'
 // 路由配置
 
 const routes = [
   {
-    path: '/',
-    name: 'Home',
+    path: '/home',
+    name: 'home',
     component: () => import('../views/HomeView.vue')
   },
   {
@@ -46,34 +43,10 @@ const routes = [
         path: 'prescription',
         name: 'DoctorPrescription',
         component: DoctorPrescription
-      }]
-    },
-  {
-    path: '/patient',
-    name: 'PatientLayout',
-    component: () => import('../layouts/PatientLayout.vue'),
-    children: [
-      {
-        path: '',
-        redirect: { name: 'PatientDashboard' }
-      },
-      {
-        path: 'dashboard',
-        name: 'PatientDashboard',
-        component: PatientDashboard
-      },
-      {
-        path: 'queue',
-        name: 'PatientQueue',
-        component: PatientQueue
-      },
-      {
-        path: 'prescription',
-        name: 'PatientPrescription',
-        component: PatientPrescription
       }
     ]
   },
+
   {
     path:'/doctor/register',
     name:'DoctorRegister',

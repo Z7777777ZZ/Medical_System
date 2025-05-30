@@ -1,24 +1,26 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
-</template>
-
-<script>
-import HelloWorld from './components/HelloWorld.vue'
-
-export default {
-  name: 'App',
-  components: {
-    HelloWorld
-  }
-}
-</script>
-
-<template>
   <div class="app-container">
     <router-view></router-view>
   </div>
 </template>
+
+<script>
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+export default {
+  name: 'App',
+  setup() {
+    const router = useRouter()
+    
+    onMounted(() => {
+      if (router.currentRoute.value.path === '/') {
+        router.push('/home')
+      }
+    })
+  }
+}
+</script>
 
 <style>
 #app {

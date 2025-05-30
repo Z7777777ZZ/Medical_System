@@ -7,7 +7,7 @@
         </div>
         <el-menu
           router
-          default-active="/doctor/queue"
+          default-active="/doctor/dashboard"
           class="el-menu-vertical"
           background-color="#304156"
           text-color="#bfcbd9"
