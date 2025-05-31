@@ -1,4 +1,3 @@
-
 from extensions import db, jwt, cors, migrate
 from user_service.utils import ApiResponse
 
@@ -13,6 +12,7 @@ from functools import wraps
 import os
 from dotenv import load_dotenv
 import logging
+import datetime
 
 # 加载环境变量
 load_dotenv()
@@ -102,6 +102,16 @@ def create_app(config_class=Config):
     from user_service.api.hospital import api as hospital_ns
     from user_service.api.department import api as department_ns
     from user_service.api.patient import api as user_service_patient_ns
+    
+    # 集成用户体验模块API
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'partof_backend'))
+    try:
+        from api_endpoints import api as ue_api
+        app.register_blueprint(ue_api, url_prefix='/api/ue')
+    except ImportError as e:
+        logging.warning(f"用户体验模块API导入失败: {e}")
 
     # 添加命名空间到API
     api.add_namespace(prescription_ns, path='/api/diagnosis/prescription')
@@ -160,6 +170,16 @@ def create_app(config_class=Config):
     @app.errorhandler(503)
     def service_unavailable(error):
         return jsonify({'error': '服务暂时不可用，请稍后重试'}), 503
+
+    # 用户体验模块测试端点
+    @app.route('/api/ue/test')
+    def ue_test():
+        return jsonify({
+            'status': 'success',
+            'message': '用户体验模块API连接成功',
+            'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'module': 'User Experience'
+        })
 
     return app
 

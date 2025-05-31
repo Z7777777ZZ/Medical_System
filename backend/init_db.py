@@ -16,7 +16,7 @@ def execute_sql_file():
     connection = pymysql.connect(
         host='localhost',
         user='root',
-        password='yuer0822',  # 修改为与 config.py 相同的密码
+        password='zsj031128',  # 修改为与 config.py 相同的密码
         charset='utf8mb4'
     )
     

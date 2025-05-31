@@ -13,7 +13,7 @@ class Config:
     JWT_COOKIE_CSRF_PROTECT = True
     DEBUG = True
 
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'mysql+pymysql://root@localhost/medical_system'
+    SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:zsj031128@localhost/medical_system'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     SQLALCHEMY_ENGINE_OPTIONS = {

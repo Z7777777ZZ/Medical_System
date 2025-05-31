@@ -189,4 +189,23 @@ export default {
 .footer-content p {
   margin: 5px 0;
 }
+
+@media (max-width: 1024px) {
+  .entrance-cards {
+    gap: 20px;
+  }
+  .entrance-card {
+    width: 260px;
+  }
+}
+
+@media (max-width: 768px) {
+  .entrance-cards {
+    flex-direction: column;
+    align-items: center;
+  }
+  .entrance-card {
+    width: 300px;
+  }
+}
 </style>

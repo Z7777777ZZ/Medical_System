@@ -11,6 +11,10 @@ import component from 'element-plus/es/components/tree-select/src/tree-select-op
 
 const routes = [
   {
+    path: '/',
+    redirect: '/home'
+  },
+  {
     path: '/home',
     name: 'home',
     component: () => import('../views/HomeView.vue')
@@ -19,6 +23,19 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: () => import('../views/auth/LoginView.vue')
+  },
+  {
+    path: '/patient/dashboard',
+    name: 'PatientDashboard',
+    component: () => import('../views/patient/DashboardView.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: 'profile',
+        name: 'PatientProfile',
+        component: () => import('../views/patient/PatientProfile.vue')
+      }
+    ]
   },
   {
     path: '/doctor',
@@ -56,6 +73,55 @@ const routes = [
     path:'/patient/register',
     name:'PatientRegister',
     component: () => import('../views/auth/PatientRegister.vue')
+  },
+  // 用户体验模块路由
+  {
+    path: '/ue',
+    name: 'UserExperience',
+    component: () => import('../views/ue/HomePage.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/ue/guide',
+    name: 'UserGuide',
+    component: () => import('../views/ue/UserGuide.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/ue/feedback',
+    name: 'FeedbackSystem',
+    component: () => import('../views/ue/FeedbackSystem.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/ue/treatment-feedback',
+    name: 'TreatmentFeedback',
+    component: () => import('../views/ue/TreatmentFeedback.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/ue/recovery-feedback',
+    name: 'RecoveryFeedback',
+    component: () => import('../views/ue/RecoveryFeedback.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/ue/notifications',
+    name: 'NotificationCenter',
+    component: () => import('../views/ue/NotificationCenter.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/ue/timeline',
+    name: 'UserTimeline',
+    component: () => import('../views/ue/UserTimeline.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/ue/health-assistant',
+    name: 'HealthAssistant',
+    component: () => import('../views/ue/HealthAssistant.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
